@@ -1,84 +1,233 @@
-import type { CatalogPlugin, GetResourceContext } from '@data-fair/types-catalogs'
-import type { MockConfig } from '#types'
+import type { MelodiConfig, MelodiDataset } from '#types'
+import axios from '@data-fair/lib-node/axios.js'
+import type { CatalogPlugin, GetResourceContext, Resource } from '@data-fair/types-catalogs'
+import path from 'path'
+import fs from 'fs'
 
-export const getResource = async ({ catalogConfig, secrets, resourceId, importConfig, tmpDir, log }: GetResourceContext<MockConfig>): ReturnType<CatalogPlugin['getResource']> => {
-  await log.info(`Downloading resource ${resourceId}`, { catalogConfig, secrets, importConfig })
-
-  // Simulate a delay for the mock plugin
-  await log.task('delay', 'Simulate delay for mock plugin (Response Delay * 10) ', catalogConfig.delay * 10)
-  for (let i = 0; i < catalogConfig.delay * 10; i += catalogConfig.delay) {
-    await new Promise(resolve => setTimeout(resolve, catalogConfig.delay))
-    await log.progress('delay', i + catalogConfig.delay)
+/**
+ * Returns the metadata of the ODS dataset for a given resource identifier.
+ *
+ * This function retrieves the main information of the dataset such as:
+ * - `title`: the dataset title
+ * - `description`: the dataset description
+ * - `keywords`: associated keywords
+ * - `format`: the dataset format (`csv`)
+ * - `topics`: Data Fair topics associated via a correspondence table
+ * - `origin`: the original URL of the dataset on ODS
+ * - `schema`: the structure of the dataset fields (`name`, `description`, `title`)
+ * - `license`: (if available) the license information with `title` and `href`
+ * - `attachments` (initialized, filled later)
+ * - `filePath` (initialized, filled later)
+ *
+ * @param catalogConfig the ODS configuration
+ * @param resourceId the identifier of the dataset to retrieve
+ * @param log the logger to record errors
+ * @returns A promise resolved with the ODS dataset metadata
+ * @throws If an error occurs while retrieving metadata.
+ */
+const getMetaData = async ({ catalogConfig, importConfig, resourceId, log }: GetResourceContext<ODSConfig>): Promise<Resource> => {
+  let dataset: ODSDataset
+  try {
+    dataset = (await axios.get(`${catalogConfig.url}/api/explore/v2.1/catalog/datasets/${resourceId}?select=exclude(attachments),exclude(alternative_exports)`)).data
+  } catch (e) {
+    console.error(`Error fetching datasets from ODS ${e}`)
+    await log.error(`Erreur pendant la récuperation des données depuis ODS ${e instanceof Error ? e.message : String(e)}`)
+    throw new Error('Erreur lors de la récuperation de la resource ODS')
+  }
+  const resource: Resource = {
+    id: dataset.dataset_id,
+    title: dataset.metas?.default?.title ?? '',
+    description: dataset.metas?.default?.description ?? '',
+    keywords: dataset.metas?.default?.keyword ?? [],
+    format: 'csv',
+    origin: catalogConfig.url + '/explore/dataset/' + dataset.dataset_id,
+    topics: mapThemesToTopics(dataset.metas?.default?.theme, catalogConfig.themes),
+    attachments: [],  // Will be filled later with getAttachments
+    filePath: '',     // Will be filled later with downloadResource
   }
 
-  // Validate the importConfig
-  await log.step('Validate import configuraiton')
-  const { returnValid } = await import('#type/importConfig/index.ts')
-  returnValid(importConfig)
-  await log.info('Import configuration is valid', { importConfig })
+  if (importConfig.compatODS) resource.analysis = { escapeKeyAlgorithm: 'compat-ods' }
 
-  // First check if the resource exists
-  const resources = (await import('./resources/resources-mock.ts')).default
-  const resource = resources.resources[resourceId]
-  if (!resource) { throw new Error(`Resource with ID ${resourceId} not found`) }
+  if (dataset.metas?.default?.license && dataset.metas?.default?.license_url) {
+    resource.license = {
+      title: dataset.metas?.default?.license,
+      href: dataset.metas?.default?.license_url,
+    }
+  }
 
-  // Import necessary modules dynamically
-  const fs = await import('node:fs/promises')
-  const path = await import('node:path')
+  const containsGeoShape = dataset.fields?.some((field) => field.type === 'geo_shape')
+  resource.schema = dataset.fields?.map((OdsField) => {
+    const geoFormat: { [key: string]: any } = {}
+    if (OdsField.type === 'geo_point_2d' && !containsGeoShape) {
+      geoFormat['x-refersTo'] = 'http://www.w3.org/2003/01/geo/wgs84_pos#lat_long'
+    } else if (OdsField.type === 'geo_shape') {
+      geoFormat['x-refersTo'] = 'https://purl.org/geojson/vocab#geometry'
+    }
+    return {
+      key: OdsField.name,
+      description: OdsField.description ?? '',
+      title: OdsField.label,
+      ...geoFormat
+    }
+  })
 
-  await log.step('Download resource file')
-  await log.warning('This task can take a while, please be patient')
-  // Simulate downloading by copying a dummy file with limited rows
-  const sourceFile = path.join(import.meta.dirname, 'resources', 'dataset-mock.csv')
-  const destFile = path.join(tmpDir, 'dataset-mock.csv')
-  const data = await fs.readFile(sourceFile, 'utf8')
+  return resource
+}
 
-  // Limit the number of rows to importConfig.nbRows (Header excluded)
-  const lines = data.split('\n').slice(0, importConfig.nbRows + 1).join('\n')
-  await fs.writeFile(destFile, lines, 'utf8')
-  await log.info(`${importConfig.nbRows} rows downloaded`)
+/**
+ * Downloads the rows of a dataset matching the given filters and saves them as a `.csv.gz` file in a temporary directory.
+ *
+ * @param catalogConfig - The ODS configuration object.
+ * @param resourceId - The ID of the dataset to download.
+ * @param importConfig - The import configuration, including filters to apply.
+ * @param tmpDir - The path to the temporary directory where the CSV will be saved.
+ * @param log - The logger to record progress and errors.
+ * @returns A promise resolving to the file path of the downloaded dataset.
+ * @throws If there is an error writing the file or fetching the dataset.
+ */
+const downloadResource = async ({ catalogConfig, resourceId, importConfig, tmpDir, log }: GetResourceContext<ODSConfig>): Promise<string> => {
+  // Build the parameters for the ODS API request
+  const odsParams: Record<string, string> = {
+    select: '*'
+  }
+  // remove empty contraints
+  const constraints: ImportFilters = (importConfig.filters || []).filter((f: Filter) => f.field.name && f.vals && f.vals.length > 0)
 
-  await log.step('End of resource download')
-  await log.info(`Resource ${resourceId} downloaded successfully`)
-  await log.info(`Resource slug is ${resource.slug}`)
-  await log.warning('This is a mock resource, the file is not real and does not contain real data.')
-  await log.error('Example of an error log for demonstration purposes.')
+  if (constraints?.length) {
+    const where = constraints.map((cons: Filter) => {
+      if (/^\d/.test(cons.field.name)) {
+        throw new Error('Champ de filtrage invalide : il ne peut pas commencer par un chiffre (pour le champ ' + cons.field.name + ')')
+      }
 
-  const attachments = []
-  if (importConfig.importAttachments) {
-    // Copy thumbnail to the tmpDir if it exists
-    const thumbnailSource = path.join(import.meta.dirname, 'resources', 'thumbnail.svg')
-    const thumbnailDest = path.join(tmpDir, 'thumbnail.svg')
-    await fs.copyFile(thumbnailSource, thumbnailDest)
-    await log.info(`Thumbnail downloaded to ${thumbnailDest}`)
-    attachments.push(
-      {
-        title: 'Mock Attachment',
-        description: 'This is a mock attachment',
-        url: 'https://example.com/mock-attachment'
+      const conditions = cons.vals.map(valeur => {
+        switch (cons.field.type) {
+          case 'text':
+            return `${cons.field.name} = "${valeur.name}"`
+          case 'int':
+          case 'double':
+            return `${cons.field.name} = ${valeur.name}`
+          case 'date':
+          case 'datetime':
+            return `${cons.field.name} = date'${valeur.name}'`
+          case 'bool':
+          case 'boolean':
+            return `${cons.field.name} is ${valeur.name}`
+          default:
+            throw new Error(`Type de champ pour ${cons.field.name} non supporté dans les filtres`)
+        }
       })
-    attachments.push({
-      title: 'Another Mock Attachment',
-      description: 'This is another mock attachment',
-      filePath: thumbnailDest
-    })
-  } else {
-    await log.warning('Attachments import is disabled, no attachments will be imported.')
+      return `(${conditions.join(' or ')})`
+    }).join(' and ')
+
+    odsParams.where = where
   }
 
-  return {
-    id: resourceId,
-    ...resource,
-    description: resource.description + '\n\n' + secrets.secretField, // Include the secret in the description for demonstration
-    filePath: destFile,
-    frequency: 'monthly',
-    image: 'https://koumoul.com/data-fair-portals/api/v1/portals/8cbc8974-2fd2-46aa-b328-804600dc840f/assets/logo',
-    license: {
-      href: 'https://www.etalab.gouv.fr/wp-content/uploads/2014/05/Licence_Ouverte.pdf',
-      title: 'Licence Ouverte / Open Licence'
-    },
-    keywords: ['mock', 'example', 'data'],
-    origin: 'https://example.com/mock',
-    attachments
+  const url = `${catalogConfig.url}/api/explore/v2.1/catalog/datasets/${resourceId}/exports/csv?compressed=true`
+  const destFile = path.join(tmpDir, `${resourceId}.csv.gz`)
+  const writer = fs.createWriteStream(destFile)
+
+  // Send the request to ODS API to download the dataset
+  try {
+    const response = await axios.get(url, {
+      params: odsParams,
+      responseType: 'stream'
+    })
+
+    let downloadedBytes = 0
+    await log.task(`download ${resourceId}`, 'File size: unknow', NaN)
+
+    const logInterval = 500 // ms
+    let lastLogged = Date.now()
+
+    response.data.on('data', (chunk: any) => {
+      downloadedBytes += chunk.length
+      const now = Date.now()
+      if (now - lastLogged > logInterval) {
+        lastLogged = now
+        log.progress(`download ${resourceId}`, downloadedBytes)
+      }
+    })
+
+    response.data.pipe(writer)
+
+    const result = await new Promise<string>((resolve, reject) => {
+      writer.on('finish', () => resolve(destFile))
+      writer.on('error', (err: any) => {
+        fs.unlink(destFile, () => { })
+        reject(err)
+      })
+
+      response.data.on('error', (err: any) => {
+        fs.unlink(destFile, () => { })
+        reject(err)
+      })
+    })
+
+    const stats = fs.statSync(destFile)
+    await log.progress(`download ${resourceId}`, stats.size, stats.size)
+
+    return result
+  } catch (error) {
+    console.error('Erreur lors de la récupération du dataset ODS (stream)', error)
+    await log.error('Erreur lors de la récupération du dataset ODS (stream)', error instanceof Error ? error.message : String(error))
+    throw new Error('Erreur pendant le téléchargement du dataset ODS en streaming')
   }
+}
+
+/**
+ * Downloads the attachments of a dataset from ODS and saves them to a temporary directory.
+ * @param importConfig - The import configuration containing the attachments to download.
+ * @param log - The logger to record progress and errors.
+ * @param tmpDir - The path to the temporary directory where the attachments will be saved.
+ * @returns An array of attachments containing the title and filePath of each downloaded attachment.
+ * @throws If an error occurs during the download of any attachment.
+ */
+const getAttachments = async ({ importConfig, log, tmpDir }: GetResourceContext<ODSConfig>): Promise<Resource['attachments']> => {
+  const attachmentODS: Attachments = importConfig.attachments || []
+  const attachmentsDF: Resource['attachments'] = []
+
+  for (const attachment of attachmentODS) {
+    const url = attachment.metas.url
+    const filePath = path.join(tmpDir, attachment.metas.title)
+
+    try {
+      const response = await axios.get(url, { responseType: 'stream' })
+      const writer = fs.createWriteStream(filePath)
+
+      await new Promise<void>((resolve, reject) => {
+        response.data.pipe(writer)
+        writer.on('finish', resolve)
+        writer.on('error', reject)
+        response.data.on('error', reject)
+      })
+
+      attachmentsDF.push({
+        title: attachment.metas.title,
+        filePath,
+      })
+      const stats = fs.statSync(filePath)
+      await log.info(`Pièce jointe ${attachment.metas.title} téléchargée. Taille : ${stats.size} octets`)
+    } catch (error) {
+      await log.error(
+        `Erreur lors du téléchargement de la pièce jointe ${attachment.metas.title}`,
+        error instanceof Error ? error.message : String(error)
+      )
+      console.error(`Erreur lors du téléchargement de la pièce jointe ${attachment.metas.title}`, error)
+    }
+  }
+
+  return attachmentsDF
+}
+
+/**
+ * Downloads the dataset and its attachments, retrieves its metadata and returns the dataset metadata with the downloaded file path included.
+ * @param context The context containing the catalog configuration and resource identifier.
+ * @returns A promise that resolves to the dataset metadata with the downloaded file path included.
+ */
+export const getResource = async (context: GetResourceContext<ODSConfig>): ReturnType<CatalogPlugin['getResource']> => {
+  await context.log.step('Téléchargement du fichier')
+  const dataset = await getMetaData(context)
+  dataset.attachments = await getAttachments(context)
+  dataset.filePath = await downloadResource(context)
+  return dataset
 }

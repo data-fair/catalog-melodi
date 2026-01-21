@@ -2,49 +2,43 @@ import type { Metadata } from '@data-fair/types-catalogs'
 
 const i18n: Metadata['i18n'] = {
   en: {
-    description: 'This catalog allows testing the service by simulating a folder and file structure.',
+    description: 'Import datasets from a Melodi catalog (insee.fr).',
     actionLabels: {
-      // createFolderInRoot: 'Create folder in root',
-      // createFolder: 'Create folder',
-      createResource: 'Create file', // Default : Create resource
-      // replaceFolder: 'Replace folder',
-      replaceResource: 'Replace file' // Default : Replace resource
+      createFolderInRoot: 'Create a new dataset',
+      createResource: 'Add as a file',
+      replaceFolder: 'Replace an existing dataset',
+      replaceResource: 'Replace an existing resource'
     },
     actionButtons: {
-      // createFolderInRoot: 'Create publication',
-      // createFolder: 'Create publication here',
-      createResource: 'Create file here', // Default : Create publication here
-      // replaceFolder: 'Replace this folder',
-      replaceResource: 'Replace file' // Default : Replace this resource
+      createFolderInRoot: 'Create dataset',
+      createResource: 'Add file',
+      replaceFolder: 'Replace this dataset',
+      replaceResource: 'Replace file'
     },
     stepTitles: {
-      // createFolder: 'Destination folder selection',
-      // createResource: 'Destination folder selection',
-      // replaceFolder: 'Folder to replace selection',
-      replaceResource: 'File to replace selection' // Default : Resource to replace selection
+      createResource: 'Select the dataset to which to add the file',
+      replaceFolder: 'Select the dataset to replace',
+      replaceResource: 'Select the file to replace'
     }
   },
   fr: {
-    description: 'Ce catalogue permet de tester le service en simulant une arborescence de dossiers et de fichiers.',
+    description: 'Importez des jeux de données depuis un catalogue Melodi (insee.fr).',
     actionLabels: {
-      // createFolderInRoot: 'Créer un dossier à la racine',
-      // createFolder: 'Créer un dossier',
-      createResource: 'Créer un fichier', // Défaut : Créer une ressource
-      // replaceFolder: 'Écraser un dossier',
-      replaceResource: 'Remplacer un fichier' // Défaut : Écraser une ressource
+      createFolderInRoot: 'Créer un nouveau jeu de données',
+      createResource: 'Ajouter en tant que fichier',
+      replaceFolder: 'Remplacer un jeu de données existant',
+      replaceResource: 'Remplacer une ressource existante'
     },
     actionButtons: {
-      // createFolderInRoot: 'Créer la publication',
-      // createFolder: 'Créer la publication ici',
-      createResource: 'Créer le fichier ici', // Défaut : Créer la publication ici
-      // replaceFolder: 'Écraser ce dossier',
-      replaceResource: 'Remplacer le fichier' // Défaut : Écraser cette ressource
+      createFolderInRoot: 'Créer le jeu de données',
+      createResource: 'Ajouter le fichier',
+      replaceFolder: 'Remplacer ce jeu de données',
+      replaceResource: 'Remplacer le fichier'
     },
     stepTitles: {
-      // createFolder: 'Sélection du dossier de destination',
-      // createResource: 'Sélection du dossier de destination',
-      // replaceFolder: 'Sélection du dossier à écraser',
-      replaceResource: 'Sélection du fichier à remplacer' // Défaut : Sélection de la ressource à écraser
+      createResource: 'Sélection du jeu de données où ajouter le fichier',
+      replaceFolder: 'Sélection du jeu de données à remplacer',
+      replaceResource: 'Sélection du fichier à remplacer'
     }
   }
 }

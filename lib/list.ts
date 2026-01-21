@@ -1,114 +1,83 @@
-import type { CatalogPlugin, ListContext, Folder } from '@data-fair/types-catalogs'
-import type { MockConfig } from '#types'
-import type { MockCapabilities } from './capabilities.ts'
+import type { MelodiConfig, MelodiDataset } from '#types'
+import capabilities from './capabilities.ts'
+import axios from '@data-fair/lib-node/axios.js'
+import type { CatalogPlugin, ListContext } from '@data-fair/types-catalogs'
 
-// Generate a random recent ISO date (within the last year)
-const randomRecentIso = () => {
-  const ms = Math.floor(Math.random() * 364 * 24 * 60 * 60 * 1000)
-  return new Date(Date.now() - ms).toISOString()
+type ResourceList = Awaited<ReturnType<CatalogPlugin['list']>>['results']
+
+
+const getLanguageContent = (array: MelodiDataset['description'] | MelodiDataset['title']) => {
+  if (!array || !Array.isArray(array) || array.length === 0) return ''
+  const found = array.find(item => item.lang === 'fr' || item.lang === 'FR')
+  return found ? found.content : (array[0]?.content || '')
+}
+/**
+ * Transform an Melodi catalog into a Data-Fair catalog
+ * @param melodiDataset the dataset to transform
+ * @returns an object containing the count of resources, the transformed resources, and an empty path array
+ */
+const prepareCatalog = (melodiCatalog: MelodiDataset[]): ResourceList => {
+  const catalog: ResourceList = []
+
+  for (const melodiDataset of melodiCatalog) {
+    const firstFile = melodiDataset.product && melodiDataset.product.length > 0 
+      ? melodiDataset.product[0] 
+      : null
+    catalog.push({
+      id: melodiDataset.identifier,
+      title: getLanguageContent(melodiDataset.title) ?? melodiDataset.identifier,
+      description: getLanguageContent(melodiDataset.description) ?? '',
+      dateModified: melodiDataset.modified,
+      size: firstFile?.byteSize ?? 0,
+      format: firstFile?.packageFormat ?? 'unknown',
+      origin: firstFile?.accessURL ?? '',
+      type: 'resource'
+    } as ResourceList[number])
+  }
+  return catalog
 }
 
-export const list = async ({ catalogConfig, secrets, params }: ListContext<MockConfig, MockCapabilities>): ReturnType<CatalogPlugin['list']> => {
-  await new Promise(resolve => setTimeout(resolve, catalogConfig.delay)) // Simulate a delay for the mock plugin
+/**
+ * Returns the catalog [list of dataset] from Melodi API
+ * @param config the Melodi configuration
+ * @returns the list of Resources available on this catalog
+ */
+export const list = async (config: ListContext<MelodiConfig, typeof capabilities>): ReturnType<CatalogPlugin<MelodiConfig>['list']> => {
 
-  const tree = (await import('./resources/resources-mock.ts')).default
-
-  /**
-   * Extracts folders and resources for a given parent/folder ID
-   * @param resources - The resources object containing folders and resources
-   * @param targetId - The parent ID for folders or folder ID for resources (undefined for root level)
-   * @returns Array of folders and resources matching the criteria
-   */
-  const getFoldersAndResources = (targetId: string | undefined) => {
-    const folders = Object.keys(tree.folders).reduce((acc: Folder[], key) => {
-      if (tree.folders[key].parentId !== targetId) return acc // Skip folders that are not under the targetId
-      acc.push({
-        id: key,
-        title: tree.folders[key].title,
-        type: 'folder',
-        updatedAt: randomRecentIso()
-      })
-      return acc
-    }, [])
-
-    // In the mock plugin, we assume that resources are always under a folder
-    if (!targetId) return folders
-
-    const resources = tree.folders[targetId]?.resourceIds.reduce((acc: Awaited<ReturnType<CatalogPlugin['list']>>['results'], resourceId) => {
-      const resource = tree.resources[resourceId]
-      if (!resource) return acc // Skip if resource not found
-
-      acc.push({
-        id: resourceId,
-        title: resource.title,
-        description: resource.description + '\n\n' + secrets.secretField, // Include the secret in the description for demonstration
-        format: resource.format,
-        mimeType: resource.mimeType,
-        origin: resource.origin,
-        size: resource.size,
-        updatedAt: resource.updatedAt,
-        type: 'resource'
-      })
-      return acc
-    }, [])
-
-    return [...folders, ...resources]
+  let res: MelodiDataset[]
+  try {
+    res = (await axios.get(`${config.catalogConfig.apiUrl}/catalog/all`)).data
+  } catch (e) {
+    console.error(`Error fetching datasets from Melodi ${e}`)
+    throw new Error('Erreur lors de la récupération de la resource Melodi')
   }
 
-  const path: Folder[] = []
-  let res = getFoldersAndResources(params.currentFolderId)
-  // Get total count before search and pagination
-  const totalCount = res.length
+  if (!Array.isArray(res)) {
+    throw new Error('Invalid response format from Melodi API: "results" is not an array but ' + typeof res)
+  }
+  let filteredList: MelodiDataset[] = []
 
-  // Apply search filter if provided
-  if (params.q && catalogConfig.searchCapability) {
-    const searchTerm = params.q.toLowerCase()
-    res = res.filter(item =>
-      item.title.toLowerCase().includes(searchTerm) ||
-      ('description' in item && item.description?.toLowerCase().includes(searchTerm))
+  const total_count = res.length
+  if (config.params?.q) {
+    const searchTerm = config.params.q.toLowerCase().trim()
+    filteredList = res.filter(dataset =>
+      getLanguageContent(dataset.title)?.toLowerCase().includes(searchTerm) ||
+      dataset.identifier?.toLowerCase().includes(searchTerm)
     )
+    res = filteredList
+  }
+  if (config.params?.size || config.params?.page) {
+    const page = Number(config.params?.page || 1)
+    const size = Number(config.params?.size || 10)
+    const start = (page - 1) * size
+    const end = (start + size)
+    res = res.slice(start, end)
   }
 
-  if (catalogConfig.paginationCapability && params.page && params.size) {
-    // Apply pagination
-    const size = params.size || 20
-    const page = params.page || 0
-    const skip = (page - 1) * size
-    res = res.slice(skip, skip + size)
-  }
-
-  // Get path to current folder if specified
-  if (params.currentFolderId) {
-    // Get current folder
-    const currentFolder = tree.folders[params.currentFolderId]
-    if (!currentFolder) throw new Error(`Folder with ID ${params.currentFolderId} not found`)
-
-    // Get path to current folder (parents folders)
-    let parentId = currentFolder.parentId
-    while (parentId) {
-      const parentFolder = tree.folders[parentId]
-      if (!parentFolder) throw new Error(`Parent folder with ID ${parentId} not found`)
-
-      // Add the parent to the start of the list to avoid reversing the path later
-      path.unshift({
-        id: parentId,
-        title: parentFolder.title,
-        type: 'folder'
-      })
-      parentId = parentFolder.parentId
-    }
-
-    // Add the current folder to the path
-    path.push({
-      id: params.currentFolderId,
-      title: currentFolder.title,
-      type: 'folder'
-    })
-  }
-
+  const catalog = prepareCatalog(res)
   return {
-    count: totalCount,
-    results: res,
-    path
+    count: filteredList.length || total_count,
+    results: catalog,
+    path: []
   }
 }

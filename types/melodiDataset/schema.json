@@ -1,0 +1,108 @@
+{
+  "$id": "https://github.com/data-fair/catalog-melodi/melodi-dataset",
+  "x-exports": [
+    "types"
+  ],
+  "title": "MelodiDataset",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "identifier",
+    "title"
+  ],
+  "properties": {
+    "identifier": {
+      "type": "string",
+      "title": "Dataset ID",
+      "x-i18n-title": {
+        "fr": "ID du jeu de données"
+      },
+      "description": "The unique identifier of the dataset.",
+      "x-i18n-description": {
+        "fr": "L'identifiant unique du jeu de données."
+      }
+    },
+    "title": {
+      "type": "array",
+      "title": "Dataset Title",
+      "x-i18n-title": {
+        "fr": "Titre du jeu de données"
+      },
+      "description": "The title of the dataset.",
+      "x-i18n-description": {
+        "fr": "Le titre du jeu de données."
+      },
+      "items": {
+        "type": "object",
+        "properties": {
+          "lang": {
+            "type": "string" 
+          },
+          "content": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "description": {
+      "type": "array",
+      "description": "The description of the dataset.",
+      "x-i18n-description": {
+        "fr": "La description du jeu de données."
+      },
+      "items": {
+        "type": "object",
+        "properties": {
+          "lang": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "modified":{
+      "type": "string",
+      "description": "The modification dates of the dataset.",
+      "x-i18n-description": {
+        "fr": "La date de modification du jeu de données."
+      },
+      "format": "date-time"
+    },"product": {
+      "type": "array",
+      "description": "The list of files associated with the dataset.",
+      "x-i18n-description": {
+        "fr": "La liste des fichiers associés au jeu de données."
+      },
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "accessURL": {
+            "type": "string"
+          },
+          "packageFormat": {
+            "type": "string"
+          },
+          "mediaType": {
+            "type": "string"
+          },
+          "byteSize": {
+            "type": "integer"
+          },
+          "title": {
+            "type": "string"
+          },
+          "modified": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    }
+  }
+}
