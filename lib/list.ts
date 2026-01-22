@@ -2,15 +2,12 @@ import type { MelodiConfig, MelodiDataset } from '#types'
 import capabilities from './capabilities.ts'
 import axios from '@data-fair/lib-node/axios.js'
 import type { CatalogPlugin, ListContext } from '@data-fair/types-catalogs'
+import { getLanguageContent } from './utils.ts'
+import memoize from 'memoizee'
+import c from 'config'
 
 type ResourceList = Awaited<ReturnType<CatalogPlugin['list']>>['results']
 
-
-const getLanguageContent = (array: MelodiDataset['description'] | MelodiDataset['title']) => {
-  if (!array || !Array.isArray(array) || array.length === 0) return ''
-  const found = array.find(item => item.lang === 'fr' || item.lang === 'FR')
-  return found ? found.content : (array[0]?.content || '')
-}
 /**
  * Transform an Melodi catalog into a Data-Fair catalog
  * @param melodiDataset the dataset to transform
@@ -27,9 +24,9 @@ const prepareCatalog = (melodiCatalog: MelodiDataset[]): ResourceList => {
       id: melodiDataset.identifier,
       title: getLanguageContent(melodiDataset.title) ?? melodiDataset.identifier,
       description: getLanguageContent(melodiDataset.description) ?? '',
-      dateModified: melodiDataset.modified,
+      updatedAt: melodiDataset.modified,
       size: firstFile?.byteSize ?? 0,
-      format: firstFile?.packageFormat ?? 'unknown',
+      format: firstFile?.packageFormat ? 'csv' : 'unknown',
       origin: firstFile?.accessURL ?? '',
       type: 'resource'
     } as ResourceList[number])
@@ -37,27 +34,32 @@ const prepareCatalog = (melodiCatalog: MelodiDataset[]): ResourceList => {
   return catalog
 }
 
+const getAllDatasets = memoize(async (apiUrl:string | undefined): Promise<MelodiDataset[]> => {
+  try {
+    const response = await axios.get(`${apiUrl}/catalog/all`)
+    return response.data as MelodiDataset[]
+  } catch (e) {
+    console.error(`Error fetching datasets from Melodi ${e}`)
+    throw new Error('Erreur lors de la récuperation des datasets Melodi')
+  }
+}, {
+  promise: true,
+  maxAge: 10 * 60 * 1000,
+  primitive: true
+})
+
+
 /**
  * Returns the catalog [list of dataset] from Melodi API
  * @param config the Melodi configuration
  * @returns the list of Resources available on this catalog
  */
 export const list = async (config: ListContext<MelodiConfig, typeof capabilities>): ReturnType<CatalogPlugin<MelodiConfig>['list']> => {
-
   let res: MelodiDataset[]
-  try {
-    res = (await axios.get(`${config.catalogConfig.apiUrl}/catalog/all`)).data
-  } catch (e) {
-    console.error(`Error fetching datasets from Melodi ${e}`)
-    throw new Error('Erreur lors de la récupération de la resource Melodi')
-  }
-
-  if (!Array.isArray(res)) {
-    throw new Error('Invalid response format from Melodi API: "results" is not an array but ' + typeof res)
-  }
-  let filteredList: MelodiDataset[] = []
-
+  res = await getAllDatasets(config.catalogConfig.apiUrl)
   const total_count = res.length
+
+  let filteredList: MelodiDataset[] = []
   if (config.params?.q) {
     const searchTerm = config.params.q.toLowerCase().trim()
     filteredList = res.filter(dataset =>
@@ -76,7 +78,7 @@ export const list = async (config: ListContext<MelodiConfig, typeof capabilities
 
   const catalog = prepareCatalog(res)
   return {
-    count: filteredList.length || total_count,
+    count: total_count,
     results: catalog,
     path: []
   }

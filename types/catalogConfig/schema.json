@@ -68,7 +68,9 @@
       "x-i18n-errorMessage": {
         "fr": "L'URL doit commencer par http:// ou https:// et ne pas se terminer par `/`."
       },
-      "default": "https://api.insee.fr/melodi",
+      "examples": [
+        "https://api.insee.fr/melodi"
+      ],
       "pattern": "^https?://.*[^/]$"
     }
   }
