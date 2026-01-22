@@ -1,0 +1,79 @@
+{
+  "$id": "https://github.com/data-fair/catalog-melodi/melodi-range",
+  "x-exports": [
+    "types"
+  ],
+  "title": "MelodiRange",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "code",
+    "range"
+  ],
+  "properties": {
+    "code": {
+      "type": "string",
+      "title": "Code",
+      "description": "The identifier of the range."
+    },
+    "range": {
+      "type": "array",
+      "title": "Range",
+      "items": {
+        "type": "object",
+        "required": ["concept"],
+        "properties": {
+          "concept": {
+            "type": "object",
+            "title": "Concept",
+            "required": ["code", "label"],
+            "properties": {
+              "code": {
+                "type": "string",
+                "title": "Concept Code"
+              },
+              "label": {
+                "type": "object",
+                "title": "Label",
+                "properties": {
+                  "fr": { "type": "string" },
+                  "en": { "type": "string" }
+                },
+                "required": ["fr"]
+              },
+              "definition": {
+                "type": "object",
+                "title": "Definition",
+                "properties": {
+                  "fr": { "type": "string" },
+                  "en": { "type": "string" }
+                }
+              }
+            }
+          },
+          "values": {
+            "type": "array",
+            "title": "Values",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "title": "Value Code"
+                },
+                "label": {
+                  "type": "object",
+                  "title": "Value Label",
+                  "properties": {
+                    "fr": { "type": "string" },
+                    "en": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

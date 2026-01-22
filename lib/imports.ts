@@ -1,84 +1,154 @@
-import type { CatalogPlugin, GetResourceContext } from '@data-fair/types-catalogs'
-import type { MockConfig } from '#types'
+import type { MelodiConfig, MelodiDataset, MelodiRange } from '#types'
+import axios from '@data-fair/lib-node/axios.js'
+import type { CatalogPlugin, GetResourceContext, Resource } from '@data-fair/types-catalogs'
+import { extractZipAndSelect, getLanguageContent } from './utils.ts'
+import path from 'path'
+import fs from 'fs'
 
-export const getResource = async ({ catalogConfig, secrets, resourceId, importConfig, tmpDir, log }: GetResourceContext<MockConfig>): ReturnType<CatalogPlugin['getResource']> => {
-  await log.info(`Downloading resource ${resourceId}`, { catalogConfig, secrets, importConfig })
-
-  // Simulate a delay for the mock plugin
-  await log.task('delay', 'Simulate delay for mock plugin (Response Delay * 10) ', catalogConfig.delay * 10)
-  for (let i = 0; i < catalogConfig.delay * 10; i += catalogConfig.delay) {
-    await new Promise(resolve => setTimeout(resolve, catalogConfig.delay))
-    await log.progress('delay', i + catalogConfig.delay)
+/**
+ * Fetches metadata for a specific Melodi dataset and transforms it into a Data-Fair Resource.
+ * @param catalogConfig The Melodi catalog configuration.
+ * @param importConfig The import configuration.
+ * @param resourceId The identifier of the Melodi dataset to fetch.
+ * @param log The logger for logging progress and errors.
+ * @returns A promise that resolves to the Resource metadata.
+ */
+const getMetaData = async ({ catalogConfig, importConfig, resourceId, log }: GetResourceContext<MelodiConfig>): Promise<Resource> => {
+  let melodiDataset: MelodiDataset
+  let melodiRange: MelodiRange // range information for schema generation
+  try {
+    melodiDataset = (await axios.get(`${catalogConfig.apiUrl}/catalog/${resourceId}`)).data
+  } catch (e) {
+    await log.error(`Error fetching Melodi dataset metadata ${e instanceof Error ? e.message : String(e)}`)
+    throw new Error('Error fetching Melodi dataset metadata')
   }
 
-  // Validate the importConfig
-  await log.step('Validate import configuraiton')
-  const { returnValid } = await import('#type/importConfig/index.ts')
-  returnValid(importConfig)
-  await log.info('Import configuration is valid', { importConfig })
+  try {
+    melodiRange = (await axios.get(`${catalogConfig.apiUrl}/range/${resourceId}`)).data
+  } catch (e) {
+    await log.error(`Error fetching range information from Melodi ${e instanceof Error ? e.message : String(e)}`)
+    throw new Error('Error fetching Melodi dataset range information')
+  }
+  // Prepare Resource metadata, first file is used for size/format/origin of the uploaded csv
+  const firstFile = melodiDataset.product && melodiDataset.product.length > 0 ? melodiDataset.product[0] : null
 
-  // First check if the resource exists
-  const resources = (await import('./resources/resources-mock.ts')).default
-  const resource = resources.resources[resourceId]
-  if (!resource) { throw new Error(`Resource with ID ${resourceId} not found`) }
+  const melodiRangeTable = melodiRange.range
 
-  // Import necessary modules dynamically
-  const fs = await import('node:fs/promises')
-  const path = await import('node:path')
+  let ressourceTitle : string
 
-  await log.step('Download resource file')
-  await log.warning('This task can take a while, please be patient')
-  // Simulate downloading by copying a dummy file with limited rows
-  const sourceFile = path.join(import.meta.dirname, 'resources', 'dataset-mock.csv')
-  const destFile = path.join(tmpDir, 'dataset-mock.csv')
-  const data = await fs.readFile(sourceFile, 'utf8')
-
-  // Limit the number of rows to importConfig.nbRows (Header excluded)
-  const lines = data.split('\n').slice(0, importConfig.nbRows + 1).join('\n')
-  await fs.writeFile(destFile, lines, 'utf8')
-  await log.info(`${importConfig.nbRows} rows downloaded`)
-
-  await log.step('End of resource download')
-  await log.info(`Resource ${resourceId} downloaded successfully`)
-  await log.info(`Resource slug is ${resource.slug}`)
-  await log.warning('This is a mock resource, the file is not real and does not contain real data.')
-  await log.error('Example of an error log for demonstration purposes.')
-
-  const attachments = []
-  if (importConfig.importAttachments) {
-    // Copy thumbnail to the tmpDir if it exists
-    const thumbnailSource = path.join(import.meta.dirname, 'resources', 'thumbnail.svg')
-    const thumbnailDest = path.join(tmpDir, 'thumbnail.svg')
-    await fs.copyFile(thumbnailSource, thumbnailDest)
-    await log.info(`Thumbnail downloaded to ${thumbnailDest}`)
-    attachments.push(
-      {
-        title: 'Mock Attachment',
-        description: 'This is a mock attachment',
-        url: 'https://example.com/mock-attachment'
-      })
-    attachments.push({
-      title: 'Another Mock Attachment',
-      description: 'This is another mock attachment',
-      filePath: thumbnailDest
-    })
+  // Determine resource title based on importConfig
+  if (importConfig.useDatasetTitle) {
+    ressourceTitle = getLanguageContent(melodiDataset.title) ?? melodiDataset.identifier
   } else {
-    await log.warning('Attachments import is disabled, no attachments will be imported.')
+    ressourceTitle = firstFile?.title ?? getLanguageContent(melodiDataset.title) ?? melodiDataset.identifier
+  }
+
+  // Generate schema from melodiRangeTable, it will be injected in the Resource object for Data-Fair to use it
+  let generatedSchema: any[] = []
+  if (melodiRangeTable && Array.isArray(melodiRangeTable)) {
+    generatedSchema = melodiRangeTable.map((field: any) => {
+      // code -> label mapping
+      const labels: Record<string, string> = {}
+
+      if (field.values && Array.isArray(field.values)) {
+        field.values.forEach((val: any) => {
+          labels[val.code] = val.label?.fr || val.label?.en || val.code
+        })
+      }
+
+      // x-labels replaces the abbreviations for the real data in ui : example R -> 'Rural'
+      return {
+        key: field.concept.code.toLowerCase(),
+        title: field.concept.label?.fr || field.concept.label?.en || field.concept.code,
+        type: 'string',
+        'x-labels': Object.keys(labels).length > 0 ? labels : undefined
+      }
+    })
   }
 
   return {
-    id: resourceId,
-    ...resource,
-    description: resource.description + '\n\n' + secrets.secretField, // Include the secret in the description for demonstration
-    filePath: destFile,
-    frequency: 'monthly',
-    image: 'https://koumoul.com/data-fair-portals/api/v1/portals/8cbc8974-2fd2-46aa-b328-804600dc840f/assets/logo',
-    license: {
-      href: 'https://www.etalab.gouv.fr/wp-content/uploads/2014/05/Licence_Ouverte.pdf',
-      title: 'Licence Ouverte / Open Licence'
-    },
-    keywords: ['mock', 'example', 'data'],
-    origin: 'https://example.com/mock',
-    attachments
+    id: melodiDataset.identifier,
+    title: getLanguageContent(melodiDataset.title) ?? melodiDataset.identifier,
+    description: ressourceTitle,
+    updatedAt: melodiDataset.modified,
+    size: firstFile?.byteSize ?? 0,
+    format: firstFile?.packageFormat ? 'csv' : 'unknown',
+    origin: firstFile?.accessURL ?? '',
+    filePath: '',
+    schema: generatedSchema
+  } as Resource
+}
+
+/**
+  * Downloads the resource from the given URL, extracts the largest file from the ZIP, and returns the file path.
+  * @param context The context containing the resource identifier, temporary directory, and logger.
+  * @param url The URL to download the resource from.
+  */
+const downloadResource = async ({ resourceId, tmpDir, log }: GetResourceContext<MelodiConfig>, url: string): Promise<string> => {
+  const destFile = path.join(tmpDir, `${resourceId}.zip`)
+  const writer = fs.createWriteStream(destFile)
+
+  try {
+    // Download the file as a stream
+    const response = await axios.get(url, {
+      responseType: 'stream',
+    })
+
+    let downloadedBytes = 0
+    await log.task(`download ${resourceId}`, 'File size: ', NaN)
+
+    const logInterval = 500
+    let lastLogged = Date.now()
+
+    response.data.on('data', (chunk: any) => {
+      downloadedBytes += chunk.length
+      const now = Date.now()
+      if (now - lastLogged > logInterval) {
+        lastLogged = now
+        log.progress(`download ${resourceId}`, downloadedBytes)
+      }
+    })
+
+    response.data.pipe(writer)
+
+    const result = await new Promise<string>((resolve, reject) => {
+      writer.on('finish', () => resolve(destFile))
+      writer.on('error', (err: any) => {
+        fs.unlink(destFile, () => { })
+        reject(err)
+      })
+
+      response.data.on('error', (err: any) => {
+        fs.unlink(destFile, () => { })
+        reject(err)
+      })
+    })
+
+    const stats = fs.statSync(destFile)
+    await log.progress(`download ${resourceId}`, stats.size, stats.size)
+
+    const finalResult = await extractZipAndSelect(result, tmpDir)
+    fs.unlinkSync(destFile)
+
+    return finalResult
+  } catch (error) {
+    console.error('Erreur lors de la récupération du dataset ODS (stream)', error)
+    await log.error('Erreur lors de la récupération du dataset ODS (stream)', error instanceof Error ? error.message : String(error))
+    throw new Error('Erreur pendant le téléchargement du dataset ODS en streaming')
   }
+}
+
+/**
+  * Downloads the resource file and returns the local file path.
+  * @param context The context containing the resource identifier, temporary directory, and logger.
+  * @returns The local file path of the downloaded resource.
+  */
+export const getResource = async (context: GetResourceContext<MelodiConfig>): ReturnType<CatalogPlugin['getResource']> => {
+  await context.log.step('Téléchargement du fichier')
+  const dataset = await getMetaData(context)
+  if (!dataset.origin) {
+    throw new Error(`Le dataset ${dataset.id} ne possède pas de fichier associé.`)
+  }
+  dataset.filePath = await downloadResource(context, dataset.origin)
+  return dataset
 }
