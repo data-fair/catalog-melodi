@@ -18,10 +18,16 @@ const getMetaData = async ({ catalogConfig, importConfig, resourceId, log }: Get
   let melodiRange: MelodiRange // range information for schema generation
   try {
     melodiDataset = (await axios.get(`${catalogConfig.apiUrl}/catalog/${resourceId}`)).data
+  } catch (e) {
+    await log.error(`Error fetching Melodi dataset metadata ${e instanceof Error ? e.message : String(e)}`)
+    throw new Error('Error fetching Melodi dataset metadata')
+  }
+
+  try {
     melodiRange = (await axios.get(`${catalogConfig.apiUrl}/range/${resourceId}`)).data
   } catch (e) {
-    await log.error(`Error from Melodi ${e instanceof Error ? e.message : String(e)}`)
-    throw new Error('Error fetching Melodi dataset metadata or range information')
+    await log.error(`Error fetching range information from Melodi ${e instanceof Error ? e.message : String(e)}`)
+    throw new Error('Error fetching Melodi dataset range information')
   }
   // Prepare Resource metadata, first file is used for size/format/origin of the uploaded csv
   const firstFile = melodiDataset.product && melodiDataset.product.length > 0 ? melodiDataset.product[0] : null

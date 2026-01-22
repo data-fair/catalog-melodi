@@ -32,7 +32,8 @@
     "@data-fair/lib-utils": "^1.6.0",
     "adm-zip": "^0.5.16",
     "fs-extra": "^11.3.0",
-    "memoize": "^10.2.0"
+    "memoize": "^10.2.0",
+    "prom-client": "^15.1.3"
   },
   "devDependencies": {
     "@commitlint/cli": "^19.8.0",
@@ -41,11 +42,12 @@
     "@data-fair/types-catalogs": "^0.6.0",
     "@types/adm-zip": "^0.5.7",
     "@types/fs-extra": "^11.0.4",
-    "@types/memoizee": "^0.4.11",
+    "@types/memoizee": "^0.4.12",
     "dayjs": "^1.11.13",
     "draftlog": "^1.0.13",
     "eslint": "^9.25.1",
     "husky": "^9.1.7",
+    "memoizee": "^0.4.17",
     "neostandard": "^0.12.1",
     "typescript": "^5.8.3"
   }
