@@ -1,43 +1,61 @@
-import type { MelodiConfig, MelodiDataset,MelodiRange  } from '#types'
+import type { MelodiConfig, MelodiDataset, MelodiRange } from '#types'
 import axios from '@data-fair/lib-node/axios.js'
 import type { CatalogPlugin, GetResourceContext, Resource } from '@data-fair/types-catalogs'
 import { extractZipAndSelect, getLanguageContent } from './utils.ts'
 import path from 'path'
 import fs from 'fs'
 
+/**
+ * Fetches metadata for a specific Melodi dataset and transforms it into a Data-Fair Resource.
+ * @param catalogConfig The Melodi catalog configuration.
+ * @param importConfig The import configuration.
+ * @param resourceId The identifier of the Melodi dataset to fetch.
+ * @param log The logger for logging progress and errors.
+ * @returns A promise that resolves to the Resource metadata.
+ */
 const getMetaData = async ({ catalogConfig, importConfig, resourceId, log }: GetResourceContext<MelodiConfig>): Promise<Resource> => {
   let melodiDataset: MelodiDataset
-  let melodiRange: MelodiRange
-  try{
+  let melodiRange: MelodiRange // range information for schema generation
+  try {
     melodiDataset = (await axios.get(`${catalogConfig.apiUrl}/catalog/${resourceId}`)).data
     melodiRange = (await axios.get(`${catalogConfig.apiUrl}/range/${resourceId}`)).data
+  } catch (e) {
+    await log.error(`Error from Melodi ${e instanceof Error ? e.message : String(e)}`)
+    throw new Error('Error fetching Melodi dataset metadata or range information')
   }
-  catch (e) {
-    console.error(`Error fetching datasets from Melodi ${e}`)
-    await log.error(`Erreur pendant la récuperation des données depuis Melodi ${e instanceof Error ? e.message : String(e)}`)
-    throw new Error('Erreur lors de la récuperation de la resource Melodi')
-  }
-  const firstFile = melodiDataset.product && melodiDataset.product.length > 0 
-    ? melodiDataset.product[0] 
-    : null
+  // Prepare Resource metadata, first file is used for size/format/origin of the uploaded csv
+  const firstFile = melodiDataset.product && melodiDataset.product.length > 0 ? melodiDataset.product[0] : null
+
   const melodiRangeTable = melodiRange.range
 
+  let ressourceTitle : string
+
+  // Determine resource title based on importConfig
+  if (importConfig.useDatasetTitle) {
+    ressourceTitle = getLanguageContent(melodiDataset.title) ?? melodiDataset.identifier
+  } else {
+    ressourceTitle = firstFile?.title ?? getLanguageContent(melodiDataset.title) ?? melodiDataset.identifier
+  }
+
+  // Generate schema from melodiRangeTable, it will be injected in the Resource object for Data-Fair to use it
   let generatedSchema: any[] = []
   if (melodiRangeTable && Array.isArray(melodiRangeTable)) {
     generatedSchema = melodiRangeTable.map((field: any) => {
       // code -> label mapping
       const labels: Record<string, string> = {}
-      
+
       if (field.values && Array.isArray(field.values)) {
         field.values.forEach((val: any) => {
           labels[val.code] = val.label?.fr || val.label?.en || val.code
         })
       }
+
+      // x-labels replaces the abbreviations for the real data in ui : example R -> 'Rural'
       return {
         key: field.concept.code.toLowerCase(),
         title: field.concept.label?.fr || field.concept.label?.en || field.concept.code,
         type: 'string',
-        "x-labels": Object.keys(labels).length > 0 ? labels : undefined
+        'x-labels': Object.keys(labels).length > 0 ? labels : undefined
       }
     })
   }
@@ -45,7 +63,7 @@ const getMetaData = async ({ catalogConfig, importConfig, resourceId, log }: Get
   return {
     id: melodiDataset.identifier,
     title: getLanguageContent(melodiDataset.title) ?? melodiDataset.identifier,
-    description: getLanguageContent(melodiDataset.description) ?? '',
+    description: ressourceTitle,
     updatedAt: melodiDataset.modified,
     size: firstFile?.byteSize ?? 0,
     format: firstFile?.packageFormat ? 'csv' : 'unknown',
@@ -56,29 +74,22 @@ const getMetaData = async ({ catalogConfig, importConfig, resourceId, log }: Get
 }
 
 /**
- * Downloads the rows of a dataset matching the given filters and saves them as a `.csv.gz` file in a temporary directory.
- *
- * @param catalogConfig - The ODS configuration object.
- * @param resourceId - The ID of the dataset to download.
- * @param importConfig - The import configuration, including filters to apply.
- * @param tmpDir - The path to the temporary directory where the CSV will be saved.
- * @param log - The logger to record progress and errors.
- * @returns A promise resolving to the file path of the downloaded dataset.
- * @throws If there is an error writing the file or fetching the dataset.
- */
-const downloadResource = async ({ catalogConfig, resourceId, importConfig, tmpDir, log }: GetResourceContext<MelodiConfig>, url: string): Promise<string> => {
-  // remove empty contraints
+  * Downloads the resource from the given URL, extracts the largest file from the ZIP, and returns the file path.
+  * @param context The context containing the resource identifier, temporary directory, and logger.
+  * @param url The URL to download the resource from.
+  */
+const downloadResource = async ({ resourceId, tmpDir, log }: GetResourceContext<MelodiConfig>, url: string): Promise<string> => {
   const destFile = path.join(tmpDir, `${resourceId}.zip`)
   const writer = fs.createWriteStream(destFile)
 
   try {
+    // Download the file as a stream
     const response = await axios.get(url, {
       responseType: 'stream',
     })
-    
 
     let downloadedBytes = 0
-    await log.task(`download ${resourceId}`, `File size: `, NaN)
+    await log.task(`download ${resourceId}`, 'File size: ', NaN)
 
     const logInterval = 500
     let lastLogged = Date.now()
@@ -122,10 +133,10 @@ const downloadResource = async ({ catalogConfig, resourceId, importConfig, tmpDi
 }
 
 /**
- * Downloads the dataset and its attachments, retrieves its metadata and returns the dataset metadata with the downloaded file path included.
- * @param context The context containing the catalog configuration and resource identifier.
- * @returns A promise that resolves to the dataset metadata with the downloaded file path included.
- */
+  * Downloads the resource file and returns the local file path.
+  * @param context The context containing the resource identifier, temporary directory, and logger.
+  * @returns The local file path of the downloaded resource.
+  */
 export const getResource = async (context: GetResourceContext<MelodiConfig>): ReturnType<CatalogPlugin['getResource']> => {
   await context.log.step('Téléchargement du fichier')
   const dataset = await getMetaData(context)
