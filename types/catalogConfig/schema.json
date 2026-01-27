@@ -36,42 +36,6 @@
           "autocomplete": "new-password"
         }
       }
-    },
-    "tokenUrl": {
-      "type": "string",
-      "title": "Token URL",
-      "x-i18n-title": {
-        "fr": "URL d'authentification"
-      },
-      "default": "",
-      "pattern": "^https?://.*",
-      "errorMessage": "The URL must start with http:// or https:// and must not end with `/`.",
-      "x-i18n-errorMessage": {
-        "fr": "L'URL doit commencer par http:// ou https:// et ne pas se terminer par `/`."
-      },
-      "examples": [
-        "https://api.insee.fr/oauth2/token",
-        "https://api.insee.fr/token"
-      ]
-    },
-    "apiUrl": {
-      "type": "string",
-      "title": "API URL",
-      "x-i18n-title": {
-        "fr": "URL de l'API Melodi"
-      },
-      "description": "Base URL for the Melodi API",
-      "x-i18n-description": {
-        "fr": "URL de base pour l'API Melodi"
-      },
-      "errorMessage": "The URL must start with http:// or https:// and must not end with `/`.",
-      "x-i18n-errorMessage": {
-        "fr": "L'URL doit commencer par http:// ou https:// et ne pas se terminer par `/`."
-      },
-      "examples": [
-        "https://api.insee.fr/melodi"
-      ],
-      "pattern": "^https?://.*[^/]$"
     }
   }
 }

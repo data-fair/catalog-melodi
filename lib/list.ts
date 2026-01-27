@@ -57,7 +57,7 @@ const getAllDatasets = memoize(async (apiUrl:string | undefined): Promise<Melodi
  */
 export const list = async (config: ListContext<MelodiConfig, typeof capabilities>): ReturnType<CatalogPlugin<MelodiConfig>['list']> => {
   let res: MelodiDataset[]
-  res = await getAllDatasets(config.catalogConfig.apiUrl)
+  res = await getAllDatasets('https://api.insee.fr/melodi')
   const totalCount = res.length
 
   let filteredList: MelodiDataset[] = []

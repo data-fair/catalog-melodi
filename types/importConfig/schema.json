@@ -6,7 +6,93 @@
   "title": "ImportConfig",
   "type": "object",
   "additionalProperties": false,
+  "required": [
+    "filters",
+    "useDatasetTitle"
+  ],
   "properties": {
+    "filters": {
+      "title": "Filters",
+      "type": "array",
+      "layout": {
+        "density": "comfortable"
+      },
+      "x-i18n-title": {
+        "fr": "Filtres"
+      },
+      "description": "List of filters to apply during the import process.",
+      "x-i18n-description": {
+        "fr": "Liste des filtres à appliquer lors du processus d'importation."
+      },
+      "items": {
+        "type": "object",
+        "title": "Filter",
+        "x-i18n-title": {
+          "fr": "Filtre"
+        },
+        "required": [
+          "selectedConcept",
+          "selectedValues"
+        ],
+        "properties": {
+          "selectedConcept": {
+            "type": "string",
+            "title": "Concept",
+            "description": "Choose a concept from Melodi to filter the imported data.",
+            "x-i18n-title": {
+              "fr": "Concept"
+            },
+            "x-i18n-description": {
+              "fr": "Choisissez un concept de Melodi pour filtrer les données importées."
+            },
+            "layout": {
+              "getItems": {
+                "url": "https://api.insee.fr/melodi/range/${context.resourceId}",
+                "itemsResults": "data.range",
+                "itemTitle": "item.concept.label.en",
+                "x-i18n-itemTitle": {
+                  "fr": "item.concept.label.fr"
+                },
+                "itemKey": "item.concept.code",
+                "itemValue": "item.concept.code"
+              }
+            }
+          },
+          "selectedValues": {
+            "type": "array",
+            "title": "Values",
+            "x-i18n-title": {
+              "fr": "Valeurs"
+            },
+            "default": [],
+            "additionalProperties": true,
+            "description": "Values to filter on",
+            "x-i18n-description": {
+              "fr": "Valeurs à filtrer"
+            },
+            "layout": {
+              "props": {
+                "clearable": true
+              },
+              "if": "!!parent.data?.selectedConcept",
+              "getItems": {
+                "url": "https://api.insee.fr/melodi/range/${context.resourceId}",
+                "itemsResults": "(data.range.find(c => c.concept.code === parent.data.selectedConcept)?.values || [])",
+                "itemTitle": "item.label.en",
+                "x-i18n-itemTitle": {
+                  "fr": "item.label.fr"
+                },
+                "itemKey": "item.code",
+                "itemValue": "item.id || item.code"
+              }
+            },
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
     "useDatasetTitle": {
       "title": "Use remote dataset title",
       "x-i18n-title": {
@@ -20,7 +106,7 @@
       "default": true,
       "layout": {
         "comp": "switch",
-        "cols": 6
+        "cols": 12
       }
     }
   },
