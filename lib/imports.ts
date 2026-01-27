@@ -1,7 +1,7 @@
 import type { MelodiConfig, MelodiDataset, MelodiRange } from '#types'
 import axios from '@data-fair/lib-node/axios.js'
 import type { CatalogPlugin, GetResourceContext, Resource } from '@data-fair/types-catalogs'
-import { getLanguageContent } from './utils.ts'
+import { getLanguageContent, extractZipAndSelect, streamToFile } from './utils.ts'
 import path from 'path'
 import fs from 'fs'
 
@@ -74,154 +74,72 @@ const getMetaData = async ({ catalogConfig, importConfig, resourceId, log }: Get
 }
 
 /**
-  * Two possible implementations :
+  * Two possible implementations depending on importConfig:
   1. Direct download of the CSV file from Melodi API
   2. Download of a ZIP file
   * @param context The context containing the resource identifier, temporary directory, import configuration, and logger.
   * @param url The URL to download the resource from.
   */
 const downloadResource = async ({ importConfig, resourceId, tmpDir, log }: GetResourceContext<MelodiConfig>, url: string): Promise<string> => {
-  // Direct download of the CSV file
-  const destFile = path.join(tmpDir, `${resourceId}.csv`) // Folder to save the downloaded file
-  const writer = fs.createWriteStream(destFile)  // Create a writable stream
-  const importParams: Record<string, string[]> = {}
-
-  // Build import parameters based on filters in importConfig
-  if (importConfig.filters && Array.isArray(importConfig.filters)) {
-    for (const filter of importConfig.filters) {
-      const code = filter.selectedConcept
-      const values = filter.selectedValues
-      if (importParams[code]) {
-        // merge and deduplicate values, set used to deduplicate (ex: code=R, values=['R','U'], then code=R, values=['U','C'] => final values = ['R','U','C'])
-        importParams[code] = [...new Set([...importParams[code], ...values])]
-      } else {
-        importParams[code] = values
-      }
-    }
-  }
-
   try {
-    // Download the file as a stream
-    const response = await axios.get(`https://api.insee.fr/melodi/data/${resourceId}/to-csv`, {
-      responseType: 'stream',
-      params: {
-        ...importParams,
-        maxResult: 1000000 // to avoid default limit of 10000 rows
-      },
-
-      paramsSerializer: params => {
-        const paramStrings = []
-        for (const [key, value] of Object.entries(params)) {
-          if (value === null || value === undefined) continue
-          if (Array.isArray(value)) {
-            for (const val of value) {
-              paramStrings.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(val))}`)
-            }
-          } else {
-            paramStrings.push(`${encodeURIComponent(key)}=${encodeURIComponent(value as string)}`)
-          }
+    // CASE 1: Filters are present -> CSV Download via API
+    if (importConfig.filters && Array.isArray(importConfig.filters) && importConfig.filters.length > 0) {
+      const destFile = path.join(tmpDir, `${resourceId}.csv`)
+      const importParams: Record<string, string[]> = {}
+      // Build import parameters based on filters in importConfig
+      for (const filter of importConfig.filters) {
+        const code = filter.selectedConcept
+        const values = filter.selectedValues
+        if (importParams[code]) {
+          // merge and deduplicate values, set used to deduplicate (ex: code=R, values=['R','U'], then code=R, values=['U','C'] => final values = ['R','U','C'])
+          importParams[code] = [...new Set([...importParams[code], ...values])]
+        } else {
+          importParams[code] = values
         }
-        return paramStrings.join('&')
       }
-    })
 
-    let downloadedBytes = 0
-    await log.task(`download ${resourceId}`, 'File size: ', NaN)
-
-    const logInterval = 500
-    let lastLogged = Date.now()
-
-    // Open a stream to download the file and track progress
-    response.data.on('data', (chunk: any) => {
-      downloadedBytes += chunk.length
-      const now = Date.now()
-      if (now - lastLogged > logInterval) {
-        lastLogged = now
-        log.progress(`download ${resourceId}`, downloadedBytes)
+      // Specific Axios config for Melodi API (Params + Serializer)
+      const axiosConfig = {
+        params: {
+          ...importParams,
+          maxResult: 1000000 // To avoid default limit of 10000 rows
+        },
+        paramsSerializer: (params: any) => {
+          const paramStrings = []
+          for (const [key, value] of Object.entries(params)) {
+            if (value === null || value === undefined) continue
+            if (Array.isArray(value)) {
+              for (const val of value) {
+                paramStrings.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(val))}`)
+              }
+            } else {
+              paramStrings.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`)
+            }
+          }
+          return paramStrings.join('&')
+        }
       }
-    })
 
-    // Pipe the response data to the writable stream
-    response.data.pipe(writer)
+      return await streamToFile(`https://api.insee.fr/melodi/data/${resourceId}/to-csv`, destFile, axiosConfig, log)
+    } else {
+      // CASE 2: No filters -> Full ZIP Download
+      const zipFile = path.join(tmpDir, `${resourceId}.zip`)
 
-    const result = await new Promise<string>((resolve, reject) => {
-      writer.on('finish', () => resolve(destFile))
+      // Call the helper function (no specific axios config needed)
+      await streamToFile(url, zipFile, {}, log)
 
-      // Handle errors during writing
-      writer.on('error', (err: any) => {
-        fs.unlink(destFile, () => { })
-        reject(err)
-      })
+      // Extract and process the ZIP
+      const finalResult = await extractZipAndSelect(zipFile, tmpDir)
+      // Clean up the ZIP file after extraction
+      fs.unlinkSync(zipFile)
 
-      // Handle errors during downloading
-      response.data.on('error', (err: any) => {
-        fs.unlink(destFile, () => { })
-        reject(err)
-      })
-    })
-
-    const stats = fs.statSync(destFile)
-    await log.progress(`download ${resourceId}`, stats.size, stats.size)
-
-    return result
-  } catch (error) {
-    console.error('Erreur lors de la récupération du dataset Melodi (stream)', error)
-    await log.error('Erreur lors de la récupération du dataset Melodi (stream)', error instanceof Error ? error.message : String(error))
-    throw new Error('Erreur pendant le téléchargement du dataset Melodi en streaming')
+      return finalResult
+    }
+  } catch (error: any) {
+    console.error('Error retrieving Melodi dataset (stream)', error)
+    await log.error('Error retrieving Melodi dataset (stream)', error instanceof Error ? error.message : String(error))
+    throw new Error('Error during Melodi dataset streaming download')
   }
-
-  // download zip
-  // const destFile = path.join(tmpDir, `${resourceId}.zip`)
-  // const writer = fs.createWriteStream(destFile)
-
-  // try {
-  //   // Download the file as a stream
-  //   const response = await axios.get(url, {
-  //     responseType: 'stream',
-  //   })
-
-  //   let downloadedBytes = 0
-  //   await log.task(`download ${resourceId}`, 'File size: ', NaN)
-
-  //   const logInterval = 500
-  //   let lastLogged = Date.now()
-
-  //   response.data.on('data', (chunk: any) => {
-  //     downloadedBytes += chunk.length
-  //     const now = Date.now()
-  //     if (now - lastLogged > logInterval) {
-  //       lastLogged = now
-  //       log.progress(`download ${resourceId}`, downloadedBytes)
-  //     }
-  //   })
-
-  //   response.data.pipe(writer)
-
-  //   const result = await new Promise<string>((resolve, reject) => {
-  //     writer.on('finish', () => resolve(destFile))
-  //     writer.on('error', (err: any) => {
-  //       fs.unlink(destFile, () => { })
-  //       reject(err)
-  //     })
-
-  //     response.data.on('error', (err: any) => {
-  //       fs.unlink(destFile, () => { })
-  //       reject(err)
-  //     })
-  //   })
-
-  //   const stats = fs.statSync(destFile)
-  //   await log.progress(`download ${resourceId}`, stats.size, stats.size)
-
-  //   const finalResult = await extractZipAndSelect(result, tmpDir)
-  //   fs.unlinkSync(destFile)
-
-  //   return finalResult
-  // } catch (error) {
-  //   console.error('Erreur lors de la récupération du dataset Melodi (stream)', error)
-  //   await log.error('Erreur lors de la récupération du dataset Melodi (stream)', error instanceof Error ? error.message : String(error))
-  //   throw new Error('Erreur pendant le téléchargement du dataset Melodi en streaming')
-  // }
 }
 
 /**

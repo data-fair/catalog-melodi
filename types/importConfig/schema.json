@@ -7,8 +7,7 @@
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "filters",
-    "useDatasetTitle"
+    "filters"
   ],
   "properties": {
     "filters": {
@@ -46,6 +45,7 @@
               "fr": "Choisissez un concept de Melodi pour filtrer les données importées."
             },
             "layout": {
+              "comp": "autocomplete",
               "getItems": {
                 "url": "https://api.insee.fr/melodi/range/${context.resourceId}",
                 "itemsResults": "data.range",
@@ -70,11 +70,13 @@
             "x-i18n-description": {
               "fr": "Valeurs à filtrer"
             },
+            "minItems": 1,
             "layout": {
               "props": {
                 "clearable": true
               },
               "if": "!!parent.data?.selectedConcept",
+              "comp": "autocomplete",
               "getItems": {
                 "url": "https://api.insee.fr/melodi/range/${context.resourceId}",
                 "itemsResults": "(data.range.find(c => c.concept.code === parent.data.selectedConcept)?.values || [])",
