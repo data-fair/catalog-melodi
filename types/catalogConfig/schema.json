@@ -7,35 +7,5 @@
   ],
   "title": "MelodiConfig",
   "type": "object",
-  "additionalProperties": false,
-  "properties": {
-    "consumerID": {
-      "type": "string",
-      "title": "Client ID",
-      "x-i18n-title": {
-        "fr": "Identifiant client"
-      },
-      "description": "The client ID obtained",
-      "x-i18n-description": {
-        "fr": "L'identifiant client obtenu sur le portail de l'insee (Mes applications)."
-      }
-    },
-    "consumerSecret": {
-      "type": "string",
-      "title": "Consumer Secret",
-      "x-i18n-title": {
-        "fr": "Client secret"
-      },
-      "description": "The client secret obtained",
-      "x-i18n-description": {
-        "fr": "Le secret client obtenu sur le portail de l'insee."
-      },
-      "layout": {
-        "props": {
-          "type": "password",
-          "autocomplete": "suppress"
-        }
-      }
-    }
-  }
+  "additionalProperties": false
 }

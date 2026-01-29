@@ -23,7 +23,7 @@ const prepareCatalog = (melodiCatalog: MelodiDataset[]): ResourceList => {
       description: getLanguageContent(melodiDataset.description) ?? '',
       updatedAt: melodiDataset.modified,
       size: firstFile?.byteSize ?? 0,
-      format: firstFile?.packageFormat ? 'csv' : 'unknown',
+      format: firstFile?.format ?? 'unknown',
       origin: firstFile?.accessURL ?? '',
       type: 'resource'
     } as ResourceList[number])
@@ -37,17 +37,20 @@ const prepareCatalog = (melodiCatalog: MelodiDataset[]): ResourceList => {
  * @returns A promise that resolves to an array of MelodiDataset objects.
  */
 const getAllDatasets = memoize(async (apiUrl:string | undefined): Promise<MelodiDataset[]> => {
+  if (!apiUrl) {
+    throw new Error("Configuration invalide : L'URL de l'API Melodi est manquante.")
+  }
   try {
     const response = await axios.get(`${apiUrl}/catalog/all`)
     return response.data as MelodiDataset[]
   } catch (e) {
     console.error(`Error fetching datasets from Melodi ${e}`)
-    throw new Error('Erreur lors de la récuperation des datasets Melodi')
+    throw new Error('Erreur lors de la récuperation des datasets Melodi (Attendez 1 minute puis rafrachissez)')
   }
 }, {
   promise: true,
   maxAge: 10 * 60 * 1000,
-  primitive: true
+  primitive: true // use apiUrl as key
 })
 
 /**
@@ -58,7 +61,7 @@ const getAllDatasets = memoize(async (apiUrl:string | undefined): Promise<Melodi
 export const list = async (config: ListContext<MelodiConfig, typeof capabilities>): ReturnType<CatalogPlugin<MelodiConfig>['list']> => {
   let res: MelodiDataset[]
   res = await getAllDatasets('https://api.insee.fr/melodi')
-  const totalCount = res.length
+  let totalCount = res.length
 
   let filteredList: MelodiDataset[] = []
   // q param for search, pagination params (size, page)
@@ -70,6 +73,7 @@ export const list = async (config: ListContext<MelodiConfig, typeof capabilities
       dataset.identifier?.toLowerCase().includes(searchTerm)
     )
     res = filteredList
+    totalCount = filteredList.length
   }
   if (config.params?.size || config.params?.page) {
     const page = Number(config.params?.page || 1) // default to page 1

@@ -85,7 +85,7 @@
           "accessURL": {
             "type": "string"
           },
-          "packageFormat": {
+          "format": {
             "type": "string"
           },
           "mediaType": {
