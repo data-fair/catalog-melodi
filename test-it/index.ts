@@ -35,8 +35,8 @@ describe('catalog-Melodi', () => {
       params: {}
     })
 
-    assert.equal(res.count, 100, 'Expected 100 items in the root folder')
-    assert.equal(res.results.length, 100)
+    assert.equal(res.count, 101, 'Expected 101 items in the root folder')
+    assert.equal(res.results.length, 101)
   })
 
   it('should list resources and folder from a folder', { skip: 'This catalog does not support folders' }, async () => {})
