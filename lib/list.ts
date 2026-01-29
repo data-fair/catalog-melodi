@@ -45,11 +45,11 @@ const getAllDatasets = memoize(async (apiUrl:string | undefined): Promise<Melodi
     return response.data as MelodiDataset[]
   } catch (e) {
     console.error(`Error fetching datasets from Melodi ${e}`)
-    throw new Error('Erreur lors de la récuperation des datasets Melodi (Attendez 1 minute puis rafrachissez)')
+    throw new Error('Erreur lors de la récupération des datasets Melodi (Attendez 1 minute puis rafraîchissez)')
   }
 }, {
   promise: true,
-  maxAge: 10 * 60 * 1000,
+  maxAge: 10 * 60 * 1000, // 10 minutes
   primitive: true // use apiUrl as key
 })
 

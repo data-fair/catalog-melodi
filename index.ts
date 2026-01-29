@@ -1,13 +1,9 @@
 import type CatalogPlugin from '@data-fair/types-catalogs'
 import { importConfigSchema, configSchema, assertConfigValid, type MelodiConfig } from '#types'
 import { type MelodiCapabilities, capabilities } from './lib/capabilities.ts'
-import i18n from './lib/i18n.ts'
 
 const plugin: CatalogPlugin<MelodiConfig, MelodiCapabilities> = {
-  async prepare (context) {
-    const prepare = (await import('./lib/prepare.ts')).default
-    return prepare(context)
-  },
+  async prepare (context) { return context },
 
   async list (context) {
     const { list } = await import('./lib/list.ts')
@@ -21,9 +17,11 @@ const plugin: CatalogPlugin<MelodiConfig, MelodiCapabilities> = {
 
   metadata: {
     title: 'Melodi',
-    description: 'Importez des jeux de données depuis un catalogue Melodi (insee.fr).',
     thumbnailPath: './lib/resources/melodi_logo.png',
-    i18n,
+    i18n: {
+      en: { description: 'Import datasets from the Melodi catalog (insee.fr).' },
+      fr: { description: 'Importez des jeux de données depuis le catalogue Melodi (insee.fr).' }
+    },
     capabilities
   },
 

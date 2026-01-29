@@ -112,7 +112,7 @@ const downloadResource = async ({ importConfig, resourceId, tmpDir, log }: GetRe
 
     const result = await new Promise<string>((resolve, reject) => {
       writer.on('finish', () => resolve(destFile))
-      writer.on('error', (err: any) => { // handle errors durring the writing process
+      writer.on('error', (err: any) => { // handle errors during the writing process
         fs.unlink(destFile, () => { })
         reject(err)
       })
