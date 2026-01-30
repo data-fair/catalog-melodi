@@ -48,7 +48,7 @@ const getAllDatasets = memoize(async (apiUrl:string | undefined): Promise<Melodi
     throw new Error('Erreur lors de la récupération des datasets Melodi (Attendez 1 minute puis rafraîchissez)')
   }
 }, {
-  promise: true,
+  promise: true, // cache the promise result
   maxAge: 10 * 60 * 1000, // 10 minutes
   primitive: true // use apiUrl as key
 })
@@ -73,7 +73,7 @@ export const list = async (config: ListContext<MelodiConfig, typeof capabilities
       dataset.identifier?.toLowerCase().includes(searchTerm)
     )
     res = filteredList
-    totalCount = filteredList.length
+    totalCount = filteredList.length // update total count based on filtered list
   }
   if (config.params?.size || config.params?.page) {
     const page = Number(config.params?.page || 1) // default to page 1

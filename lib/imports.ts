@@ -1,9 +1,8 @@
 import type { MelodiConfig, MelodiDataset, MelodiRange } from '#types'
 import axios from '@data-fair/lib-node/axios.js'
 import type { CatalogPlugin, GetResourceContext, Resource } from '@data-fair/types-catalogs'
-import { getLanguageContent, extractCsv, extractCsvWithFilters } from './utils.ts'
+import { getLanguageContent, extractCsv, extractCsvWithFilters, downloadFileWithProgress, buildImportParams } from './utils.ts'
 import path from 'path'
-import fs from 'fs'
 
 /**
  * Fetches metadata for a specific Melodi dataset and transforms it into a Data-Fair Resource.
@@ -78,95 +77,130 @@ const getMetaData = async ({ catalogConfig, importConfig, resourceId, log }: Get
 }
 
 /**
-  * Downloads the resource from the given URL, extracts the largest file from the ZIP, and returns the file path.
-  * @param context The context containing the resource ID, import configuration, temporary directory, and logger.
-  * @param url The URL to download the resource from.
-  */
-const downloadResource = async ({ importConfig, resourceId, tmpDir, log }: GetResourceContext<MelodiConfig>, url: string): Promise<string> => {
-  const destFile = path.join(tmpDir, `${resourceId}.zip`)
-  const writer = fs.createWriteStream(destFile) // open the file for writing
-
+ * Counts the number of items in a Melodi dataset
+ * @returns a boolean indicating whether the dataset as enough items for a single call to fetch all items.
+ */
+const countPagging = async (resourceId: string): Promise<boolean> => {
   try {
-    // Download the file as a stream
-    const response = await axios.get(url, {
-      responseType: 'stream',
-    })
-
-    let downloadedBytes = 0
-    await log.task(`download ${resourceId}`, 'File size: ', NaN)
-
-    const logInterval = 500
-    let lastLogged = Date.now()
-
-    // Listen for data events and update the progress log
-    response.data.on('data', (chunk: any) => {
-      downloadedBytes += chunk.length
-      const now = Date.now()
-      if (now - lastLogged > logInterval) {
-        lastLogged = now
-        log.progress(`download ${resourceId}`, downloadedBytes)
+    const response = await axios.get(`https://api.insee.fr/melodi/data/${resourceId}`, {
+      params: {
+        maxResult: 0,
+        totalCount: true
       }
     })
-
-    response.data.pipe(writer) // pluck the stream into the file
-
-    const result = await new Promise<string>((resolve, reject) => {
-      writer.on('finish', () => resolve(destFile))
-      writer.on('error', (err: any) => { // handle errors during the writing process
-        fs.unlink(destFile, () => { })
-        reject(err)
-      })
-
-      // Handle errors during the download process
-      response.data.on('error', (err: any) => {
-        fs.unlink(destFile, () => { })
-        reject(err)
-      })
-    })
-
-    const stats = fs.statSync(destFile)
-    await log.progress(`download ${resourceId}`, stats.size, stats.size)
-
-    let finalResult: string
-
-    if (importConfig.filters && Array.isArray(importConfig.filters) && importConfig.filters.length > 0) {
-      const importParams: Record<string, string[]> = {}
-      // Build import parameters based on filters in importConfig
-      for (const filter of importConfig.filters) {
-        const code = filter.selectedConcept
-        const values = filter.selectedValues
-        if (importParams[code]) {
-          // merge and deduplicate values, set used to deduplicate (ex: code=R, values=['R','U'], then code=R, values=['U','C'] => final values = ['R','U','C'])
-          importParams[code] = [...new Set([...importParams[code], ...values])]
-        } else {
-          importParams[code] = values
-        }
-      }
-
-      finalResult = await extractCsvWithFilters(result, importParams, tmpDir, resourceId, log)
-    } else {
-      finalResult = await extractCsv(result, tmpDir, resourceId)
+    const totalItems = response.data?.paging?.count
+    if (typeof totalItems === 'number' && totalItems > 0 && totalItems < 100000) {
+      return true
     }
-
-    return finalResult
-  } catch (error) {
-    console.error('Erreur lors de la récupération du dataset Melodi', error)
-    await log.error('Erreur lors de la récupération du dataset Melodi', error instanceof Error ? error.message : String(error))
-    throw new Error('Erreur pendant le téléchargement du dataset Melodi')
+    return false
+  } catch (e) {
+    // In case of error, we return false and log the error
+    console.error(`Erreur lors de la vérification de pagination pour ${resourceId}`, e)
+    return false
   }
 }
 
 /**
-  * Downloads the resource file and returns the local file path.
-  * @param context The context containing the resource identifier, temporary directory, and logger.
-  * @returns The local file path of the downloaded resource.
-  */
+ * Downloads the resource via ZIP (for large datasets), extracts the relevant file,
+ * and applies filters locally if necessary.
+ * @param context - The execution context (config, dirs, logs).
+ * @param url - The direct download URL for the ZIP file.
+ * @returns The path to the final CSV file.
+ */
+const downloadResourceZip = async ({ importConfig, resourceId, tmpDir, log }: GetResourceContext<MelodiConfig>, url: string): Promise<string> => {
+  const destFile = path.join(tmpDir, `${resourceId}.zip`)
+  try {
+    // 1. Download the ZIP file with a progress bar
+    const result = await downloadFileWithProgress(url, destFile, resourceId, log)
+    let finalResult: string
+    // 2. Check if filters are configured
+    if (importConfig.filters && Array.isArray(importConfig.filters) && importConfig.filters.length > 0) {
+      // Transform config filters into a clean dictionary (Record<string, string[]>)
+      const importParams = buildImportParams(importConfig.filters)
+      // Extract and filter lines
+      finalResult = await extractCsvWithFilters(result, importParams, tmpDir, resourceId, log)
+    } else {
+      // Standard extraction without filtering
+      finalResult = await extractCsv(result, tmpDir, resourceId)
+    }
+    return finalResult
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    console.error('Error downloading Melodi ZIP dataset:', error)
+    await log.error('Error downloading Melodi ZIP dataset', errorMessage)
+    throw new Error('Failed to download Melodi dataset (ZIP)')
+  }
+}
+
+/**
+ * Downloads the resource via the Melodi API (for small datasets).
+ * Filters are applied directly via API query parameters.
+ * @param context - The execution context.
+ * @returns The path to the downloaded CSV file.
+ */
+const downloadResourceCsv = async ({ importConfig, resourceId, tmpDir, log }: GetResourceContext<MelodiConfig>): Promise<string> => {
+  const destFile = path.join(tmpDir, `${resourceId}.csv`)
+  try {
+    let axiosConfig = {}
+    // Prepare API parameters based on filters
+    if (importConfig.filters && Array.isArray(importConfig.filters) && importConfig.filters.length > 0) {
+      const importParams = buildImportParams(importConfig.filters)
+      axiosConfig = {
+        params: {
+          ...importParams,
+          maxResult: 1000000 // Request a large page size to get everything
+        },
+        // Custom serializer to handle array parameters correctly for Java/Spring backends
+        // Converts { code: ['A', 'B'] } to "code=A&code=B" instead of "code[]=A&code[]=B"
+        paramsSerializer: (params: any) => {
+          const paramStrings: string[] = []
+          for (const [key, value] of Object.entries(params)) {
+            if (value === null || value === undefined) continue
+            if (Array.isArray(value)) {
+              for (const val of value) {
+                paramStrings.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(val))}`)
+              }
+            } else {
+              paramStrings.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`)
+            }
+          }
+          return paramStrings.join('&')
+        }
+      }
+    } else {
+      // No filters: just ask for the max results
+      axiosConfig = { params: { maxResult: 1000000 } }
+    }
+    // Perform the download
+    const finalResult = downloadFileWithProgress(`https://api.insee.fr/melodi/data/${resourceId}`, destFile, resourceId, log, axiosConfig)
+    return finalResult
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    console.error('Error downloading Melodi CSV API:', error)
+    await log.error('Error downloading Melodi CSV API', errorMessage)
+    throw new Error('Failed to download Melodi dataset (API CSV)')
+  }
+}
+
+/**
+ * Main entry point to retrieve a resource.
+ * Decides whether to use the API (CSV) or the File (ZIP) based on dataset size.
+ * @param context - The context containing the resource identifier, temporary directory, and logger.
+ * @returns The dataset object with the local filePath updated.
+ */
 export const getResource = async (context: GetResourceContext<MelodiConfig>): ReturnType<CatalogPlugin['getResource']> => {
   await context.log.step('Téléchargement du fichier')
   const dataset = await getMetaData(context)
   if (!dataset.origin) {
     throw new Error(`Le dataset ${dataset.id} ne possède pas de fichier associé.`)
   }
-  dataset.filePath = await downloadResource(context, dataset.origin)
+  const isSmallDataset = await countPagging(context.resourceId)
+  if (isSmallDataset) {
+    context.log.info(`Dataset léger détecté (${context.resourceId}), téléchargement CSV direct.`)
+    dataset.filePath = await downloadResourceCsv(context)
+  } else {
+    context.log.info(`Dataset volumineux détecté (${context.resourceId}), téléchargement ZIP.`)
+    dataset.filePath = await downloadResourceZip(context, dataset.origin)
+  }
   return dataset
 }
