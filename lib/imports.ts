@@ -12,7 +12,7 @@ import path from 'path'
  * @param log The logger for logging progress and errors.
  * @returns A promise that resolves to the Resource metadata.
  */
-const getMetaData = async ({ catalogConfig, importConfig, resourceId, log }: GetResourceContext<MelodiConfig>): Promise<Resource> => {
+const getMetaData = async ({ importConfig, resourceId, log }: GetResourceContext<MelodiConfig>): Promise<Resource> => {
   let melodiDataset: MelodiDataset
   let melodiRange: MelodiRange // range information for schema generation
 
@@ -80,12 +80,33 @@ const getMetaData = async ({ catalogConfig, importConfig, resourceId, log }: Get
  * Counts the number of items in a Melodi dataset
  * @returns a boolean indicating whether the dataset as enough items for a single call to fetch all items.
  */
-const countPagging = async (resourceId: string): Promise<boolean> => {
+const countPagging = async (resourceId: string, filters?: any[]): Promise<boolean> => {
   try {
+    // Base parameters for counting
+    let requestParams: any = {
+      maxResult: 0,
+      totalCount: true
+    }
+    // Inject filters if present
+    if (filters && Array.isArray(filters) && filters.length > 0) {
+      const filterParams = buildImportParams(filters)
+      requestParams = { ...requestParams, ...filterParams }
+    }
     const response = await axios.get(`https://api.insee.fr/melodi/data/${resourceId}`, {
-      params: {
-        maxResult: 0,
-        totalCount: true
+      params: requestParams,
+      paramsSerializer: (params: any) => {
+        const paramStrings: string[] = []
+        for (const [key, value] of Object.entries(params)) {
+          if (value === null || value === undefined) continue
+          if (Array.isArray(value)) {
+            for (const val of value) {
+              paramStrings.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(val))}`)
+            }
+          } else {
+            paramStrings.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`)
+          }
+        }
+        return paramStrings.join('&')
       }
     })
     const totalItems = response.data?.paging?.count
@@ -194,7 +215,7 @@ export const getResource = async (context: GetResourceContext<MelodiConfig>): Re
   if (!dataset.origin) {
     throw new Error(`Le dataset ${dataset.id} ne possède pas de fichier associé.`)
   }
-  const isSmallDataset = await countPagging(context.resourceId)
+  const isSmallDataset = await countPagging(context.resourceId, context.importConfig?.filters)
   if (isSmallDataset) {
     context.log.info(`Dataset léger détecté (${context.resourceId}), téléchargement CSV direct.`)
     dataset.filePath = await downloadResourceCsv(context)

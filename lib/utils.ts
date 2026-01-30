@@ -269,11 +269,6 @@ export async function downloadFileWithProgress (
   }
 }
 
-interface FilterConfig {
-  selectedConcept: string
-  selectedValues: string[]
-}
-
 /**
  * transform filters from configuration into a deduplicated dictionary.
  * Merges values if the same concept appears multiple times.
@@ -303,4 +298,9 @@ export function buildImportParams (filters: FilterConfig[]): Record<string, stri
   }
 
   return params
+}
+
+interface FilterConfig {
+  selectedConcept: string
+  selectedValues: string[]
 }
