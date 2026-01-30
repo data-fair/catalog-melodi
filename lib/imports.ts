@@ -172,7 +172,7 @@ const downloadResourceCsv = async ({ importConfig, resourceId, tmpDir, log }: Ge
       axiosConfig = { params: { maxResult: 1000000 } }
     }
     // Perform the download
-    const finalResult = downloadFileWithProgress(`https://api.insee.fr/melodi/data/${resourceId}`, destFile, resourceId, log, axiosConfig)
+    const finalResult = downloadFileWithProgress(`https://api.insee.fr/melodi/data/${resourceId}/to-csv`, destFile, resourceId, log, axiosConfig)
     return finalResult
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
