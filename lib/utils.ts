@@ -4,7 +4,7 @@ import StreamZip from 'node-stream-zip'
 import fs from 'fs'
 import readline from 'readline'
 import axios from '@data-fair/lib-node/axios.js'
-import { AxiosRequestConfig } from 'axios'
+import type { AxiosRequestConfig } from 'axios'
 
 /**
  * Retrieves content in the preferred language (French) from an array of multilingual objects.
