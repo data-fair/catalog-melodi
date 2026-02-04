@@ -155,19 +155,17 @@ export async function pivotCsv (
   // Set to record all dynamic columns encountered (ex: "agey15sexh", "agey15sexf", etc)
   const dynamicHeaders = new Set<string>()
 
+  let sourceHeaders: string[] = []
+  const colIndices: Record<string, number> = {}
+
+  let progressLines = 0
+  let lastLogged = Date.now()
+  const logInterval = 500 // Log progress every 500ms
+
   try {
     // Read source file
     const fileStream = fs.createReadStream(sourceCsvPath)
     const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity })
-
-    let sourceHeaders: string[] = []
-    const colIndices: Record<string, number> = {}
-
-    await log.task('Transformation des données', 'Traitement des lignes...', nbLines)
-
-    let lastLogged = Date.now()
-    const logInterval = 500
-    let progressLines = 0
 
     for await (const line of rl) {
       const now = Date.now()
@@ -179,7 +177,6 @@ export async function pivotCsv (
       if (!line.trim()) continue
       // Clean up potential quotes
       const cols = line.split(';').map(c => c.trim().replace(/^"|"$/g, ''))
-      console.log(cols)
       // Process first line
       if (sourceHeaders.length === 0) {
         sourceHeaders = cols
@@ -263,7 +260,7 @@ export async function pivotCsv (
       output.write(row.join(';') + '\n')
     }
 
-    log.progress('Transformation des données (Pivot)', nbLines, nbLines)
+    log.progress('Transformation des données', nbLines, nbLines)
     output.end()
     // Wait for physical write to finish
     await new Promise<void>((resolve, reject) => {
