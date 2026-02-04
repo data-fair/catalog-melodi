@@ -1,7 +1,9 @@
 import type { MelodiConfig, MelodiDataset, MelodiRange } from '#types'
 import axios from '@data-fair/lib-node/axios.js'
 import type { CatalogPlugin, GetResourceContext, Resource } from '@data-fair/types-catalogs'
-import { getLanguageContent, extractCsv, extractCsvWithFilters, downloadFileWithProgress, buildImportParams } from './utils.ts'
+import { getLanguageContent, buildImportParams, serializeParams } from './utils/common.ts'
+import { downloadFileWithProgress } from './utils/download.ts'
+import { extractCsvWithFilters, pivotCsv } from './utils/csv.ts'
 import path from 'path'
 
 /**
@@ -15,7 +17,6 @@ import path from 'path'
 const getMetaData = async ({ importConfig, resourceId, log }: GetResourceContext<MelodiConfig>): Promise<Resource> => {
   let melodiDataset: MelodiDataset
   let melodiRange: MelodiRange // range information for schema generation
-
   try {
     melodiDataset = (await axios.get(`https://api.insee.fr/melodi/catalog/${resourceId}`)).data
     melodiRange = (await axios.get(`https://api.insee.fr/melodi/range/${resourceId}`)).data
@@ -25,22 +26,27 @@ const getMetaData = async ({ importConfig, resourceId, log }: GetResourceContext
   }
   // Prepare Resource metadata, first file is used for size/format/origin of the uploaded csv
   const firstFile = melodiDataset.product && melodiDataset.product.length > 0 ? melodiDataset.product[0] : null
-
   const melodiRangeTable = melodiRange.range
-
   let ressourceTitle : string
-
   // Determine resource title based on importConfig
   if (importConfig.useDatasetTitle) {
     ressourceTitle = getLanguageContent(melodiDataset.title) ?? melodiDataset.identifier
   } else {
     ressourceTitle = melodiDataset.identifier ?? getLanguageContent(melodiDataset.title)
   }
-
   // Generate schema from melodiRangeTable, it will be injected in the Resource object for Data-Fair to use it
   let generatedSchema: any[] = []
   if (melodiRangeTable && Array.isArray(melodiRangeTable)) {
     generatedSchema = melodiRangeTable.map((field: any) => {
+      if (field.concept.code === 'GEO' || field.concept.code === 'GEO_OBJECT') {
+        // Special handling for GEO fields
+        return {
+          key: field.concept.code.toLowerCase(),
+          title: field.concept.label?.fr || field.concept.label?.en || field.concept.code,
+          type: 'string',
+          format: 'geo-code'
+        }
+      }
       // code -> label mapping
       const labels: Record<string, string> = {}
       if (field.values && Array.isArray(field.values)) {
@@ -48,7 +54,6 @@ const getMetaData = async ({ importConfig, resourceId, log }: GetResourceContext
           labels[val.code] = val.label?.fr || val.label?.en || val.code
         })
       }
-
       // x-labels replaces the abbreviations for the real data in ui : example R -> 'Rural'
       return {
         key: field.concept.code.toLowerCase(),
@@ -58,7 +63,6 @@ const getMetaData = async ({ importConfig, resourceId, log }: GetResourceContext
       }
     })
   }
-
   return {
     id: melodiDataset.identifier,
     title: ressourceTitle,
@@ -80,7 +84,7 @@ const getMetaData = async ({ importConfig, resourceId, log }: GetResourceContext
  * Counts the number of items in a Melodi dataset
  * @returns a boolean indicating whether the dataset as enough items for a single call to fetch all items.
  */
-const countPagging = async (resourceId: string, filters?: any[]): Promise<boolean> => {
+const countPagging = async (resourceId: string, filters?: any[]): Promise<number> => {
   try {
     // Base parameters for counting
     let requestParams: any = {
@@ -94,36 +98,20 @@ const countPagging = async (resourceId: string, filters?: any[]): Promise<boolea
     }
     const response = await axios.get(`https://api.insee.fr/melodi/data/${resourceId}`, {
       params: requestParams,
-      paramsSerializer: (params: any) => {
-        const paramStrings: string[] = []
-        for (const [key, value] of Object.entries(params)) {
-          if (value === null || value === undefined) continue
-          if (Array.isArray(value)) {
-            for (const val of value) {
-              paramStrings.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(val))}`)
-            }
-          } else {
-            paramStrings.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`)
-          }
-        }
-        return paramStrings.join('&')
-      }
+      paramsSerializer: serializeParams
     })
     const totalItems = response.data?.paging?.count
-    if (typeof totalItems === 'number' && totalItems > 0 && totalItems < 100000) {
-      return true
-    }
-    return false
+    return totalItems || 0
   } catch (e) {
     // In case of error, we return false and log the error
     console.error(`Erreur lors de la vérification de pagination pour ${resourceId}`, e)
-    return false
+    return 0
   }
 }
 
 /**
  * Downloads the resource via ZIP (for large datasets), extracts the relevant file,
- * and applies filters locally if necessary.
+ * and applies filters locally.
  * @param context - The execution context (config, dirs, logs).
  * @param url - The direct download URL for the ZIP file.
  * @returns The path to the final CSV file.
@@ -131,20 +119,12 @@ const countPagging = async (resourceId: string, filters?: any[]): Promise<boolea
 const downloadResourceZip = async ({ importConfig, resourceId, tmpDir, log }: GetResourceContext<MelodiConfig>, url: string): Promise<string> => {
   const destFile = path.join(tmpDir, `${resourceId}.zip`)
   try {
-    // 1. Download the ZIP file with a progress bar
+    // Download the ZIP file with a progress bar
     const result = await downloadFileWithProgress(url, destFile, resourceId, log)
-    let finalResult: string
-    // 2. Check if filters are configured
-    if (importConfig.filters && Array.isArray(importConfig.filters) && importConfig.filters.length > 0) {
-      // Transform config filters into a clean dictionary (Record<string, string[]>)
-      const importParams = buildImportParams(importConfig.filters)
-      // Extract and filter lines
-      finalResult = await extractCsvWithFilters(result, importParams, tmpDir, resourceId, log)
-    } else {
-      // Standard extraction without filtering
-      finalResult = await extractCsv(result, tmpDir, resourceId)
-    }
-    return finalResult
+    // Transform config filters into a clean dictionary (Record<string, string[]>)
+    const importParams = buildImportParams(importConfig.filters)
+    // Extract and filter lines from the ZIP
+    return await extractCsvWithFilters(result, importParams, tmpDir, resourceId, log)
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
     console.error('Error downloading Melodi ZIP dataset:', error)
@@ -162,35 +142,14 @@ const downloadResourceZip = async ({ importConfig, resourceId, tmpDir, log }: Ge
 const downloadResourceCsv = async ({ importConfig, resourceId, tmpDir, log }: GetResourceContext<MelodiConfig>): Promise<string> => {
   const destFile = path.join(tmpDir, `${resourceId}.csv`)
   try {
-    let axiosConfig = {}
     // Prepare API parameters based on filters
-    if (importConfig.filters && Array.isArray(importConfig.filters) && importConfig.filters.length > 0) {
-      const importParams = buildImportParams(importConfig.filters)
-      axiosConfig = {
-        params: {
-          ...importParams,
-          maxResult: 1000000 // Request a large page size to get everything
-        },
-        // Custom serializer to handle array parameters correctly for Java/Spring backends
-        // Converts { code: ['A', 'B'] } to "code=A&code=B" instead of "code[]=A&code[]=B"
-        paramsSerializer: (params: any) => {
-          const paramStrings: string[] = []
-          for (const [key, value] of Object.entries(params)) {
-            if (value === null || value === undefined) continue
-            if (Array.isArray(value)) {
-              for (const val of value) {
-                paramStrings.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(val))}`)
-              }
-            } else {
-              paramStrings.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`)
-            }
-          }
-          return paramStrings.join('&')
-        }
-      }
-    } else {
-      // No filters: just ask for the max results
-      axiosConfig = { params: { maxResult: 1000000 } }
+    const importParams = buildImportParams(importConfig.filters)
+    const axiosConfig = {
+      params: {
+        ...importParams,
+        maxResult: 1000000 // Request a large page size to get everything
+      },
+      paramsSerializer: serializeParams
     }
     // Perform the download
     const finalResult = downloadFileWithProgress(`https://api.insee.fr/melodi/data/${resourceId}/to-csv`, destFile, resourceId, log, axiosConfig)
@@ -204,10 +163,9 @@ const downloadResourceCsv = async ({ importConfig, resourceId, tmpDir, log }: Ge
 }
 
 /**
- * Main entry point to retrieve a resource.
- * Decides whether to use the API (CSV) or the File (ZIP) based on dataset size.
- * @param context - The context containing the resource identifier, temporary directory, and logger.
- * @returns The dataset object with the local filePath updated.
+  * Retrieves the resource file for a specific Melodi dataset, applying filters and transformations as needed.
+  * @param context The execution context containing configuration, resource ID, and logging.
+  * @returns A promise that resolves to the Resource with the filePath set to the downloaded file.
  */
 export const getResource = async (context: GetResourceContext<MelodiConfig>): ReturnType<CatalogPlugin['getResource']> => {
   await context.log.step('Téléchargement du fichier')
@@ -215,13 +173,58 @@ export const getResource = async (context: GetResourceContext<MelodiConfig>): Re
   if (!dataset.origin) {
     throw new Error(`Le dataset ${dataset.id} ne possède pas de fichier associé.`)
   }
-  const isSmallDataset = await countPagging(context.resourceId, context.importConfig?.filters)
-  if (isSmallDataset) {
+  const baseFilters = context.importConfig.filters ? [...context.importConfig.filters] : []
+  const activeFilters = [...baseFilters]
+  if (context.importConfig.geoLevel) {
+    activeFilters.push({
+      selectedConcept: 'GEO',
+      selectedValues: [context.importConfig.geoLevel]
+    })
+  }
+  const nbLines = await countPagging(context.resourceId, activeFilters)
+  if (nbLines > 0 && nbLines <= 100000) {
+    const contextWithFilters = {
+      ...context,
+      importConfig: {
+        ...context.importConfig,
+        filters: activeFilters
+      }
+    }
     context.log.info(`Dataset léger détecté (${context.resourceId}), téléchargement CSV direct.`)
-    dataset.filePath = await downloadResourceCsv(context)
+    dataset.filePath = await downloadResourceCsv(contextWithFilters)
   } else {
     context.log.info(`Dataset volumineux détecté (${context.resourceId}), téléchargement ZIP.`)
-    dataset.filePath = await downloadResourceZip(context, dataset.origin)
+    // For large datasets, download via ZIP
+    const zipFilters = [...baseFilters]
+    if (context.importConfig.geoLevel && context.importConfig.geoLevel !== 'NAT') {
+      zipFilters.push({
+        selectedConcept: 'GEO_OBJECT',
+        selectedValues: [context.importConfig.geoLevel]
+      })
+    }
+    const zipContext = {
+      ...context,
+      importConfig: { ...context.importConfig, filters: zipFilters }
+    }
+    dataset.filePath = await downloadResourceZip(zipContext, dataset.origin)
+  }
+  if (context.importConfig.pivotConcepts && context.importConfig.pivotConcepts.length > 0) {
+    try {
+      await context.log.step('Transformation')
+      const pivotedFilePath = await pivotCsv(
+        dataset.filePath,
+        context.tmpDir,
+        context.resourceId,
+        context.importConfig.pivotConcepts, // contains the list of concepts to pivot on
+        context.log,
+        nbLines
+      )
+      // replace filePath with the pivoted file
+      dataset.filePath = pivotedFilePath
+    } catch (error) {
+      await context.log.error('Erreur lors du pivotage', error)
+      throw error
+    }
   }
   return dataset
 }
