@@ -197,21 +197,19 @@ export async function pivotCsv (
       if (!geoVal || !timeVal) continue
 
       // Build dynamic column name
-      // Ex: agey15sexf for concepts AGE_Y15 and SEX with values Y15 and F
       const pivotParts: string[] = []
 
       for (const pc of pivotConcepts) {
         const idx = colIndices[pc]
         if (idx !== undefined) {
           const val = cols[idx]
-          const cleanPc = pc.toLowerCase().replace(/_/g, '').substring(0, 3) // use first 3 letters of concept code, suppress underscores
-          const cleanVal = val.toLowerCase().replace(/_/g, '')
-          pivotParts.push(`${cleanPc}${cleanVal}`)
+          const cleanVal = val.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '') // clean value: lowercase, no accents, alphanumeric only
+          pivotParts.push(`${cleanVal}`)
         }
       }
 
       // If no pivot concept found, call the column "value"
-      const finalColName = pivotParts.length > 0 ? pivotParts.join('') : 'value'
+      const finalColName = pivotParts.length > 0 ? pivotParts.join('_') : 'value'
 
       // Store in buffer
       const rowKey = `${geoVal}|${timeVal}`
