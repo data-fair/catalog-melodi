@@ -7,13 +7,58 @@
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "filters"
+    "filters",
+    "geoLevel"
   ],
   "properties": {
+    "geoLevel": {
+      "title": "Spatial Resolution",
+      "x-i18n-title": {
+        "fr": "Niveau géographique"
+      },
+      "description": "Select the geographic level to import. Note: The 'NAT' (National) level is typically not suitable for local territorial analysis.",
+      "x-i18n-description": {
+        "fr": "Sélectionnez le niveau géographique à importer. Note : Le niveau 'NAT' (National) n'est généralement pas adapté pour une analyse territoriale locale."
+      },
+      "type": "string",
+      "layout": {
+        "comp": "autocomplete",
+        "getItems": {
+          "url": "https://api.insee.fr/melodi/catalog/${context.resourceId}",
+          "itemsResults": "data.spatialResolution",
+          "itemTitle": "item.label.find(l => l.lang === 'fr' || l.lang === 'FR')?.content || item.id",
+          "itemKey": "item.id",
+          "itemValue": "item.id"
+        }
+      }
+    },
+    "pivotConcepts": {
+      "title": "Keep as columns",
+      "description": "Select concepts to transform into columns. The values will be combined (Cross-tabulation).",
+      "x-i18n-title": { "fr": "Garder en colonnes" },
+      "x-i18n-description": { "fr": "Sélectionnez les concepts à transformer en colonnes. Les valeurs seront combinées (Tableau croisé)." },
+      "type": "array",
+      "layout": {
+        "if": "!!parent.data?.geoLevel",
+        "comp": "autocomplete",
+        "getItems": {
+          "url": "https://api.insee.fr/melodi/range/${context.resourceId}",
+          "itemsResults": "data.range.filter(item => item.concept.code !== 'GEO' && item.concept.code !== 'TIME_PERIOD')",
+          "itemTitle": "item.concept.label.en",
+          "x-i18n-itemTitle": { "fr": "item.concept.label.fr" },
+          "itemKey": "item.concept.code",
+          "itemValue": "item.concept.code"
+        }
+      },
+      "items": {
+        "type": "string"
+      }
+    },
     "filters": {
       "title": "Filters",
       "type": "array",
       "layout": {
+        "if": "!!parent.data?.geoLevel",
         "density": "comfortable"
       },
       "x-i18n-title": {
@@ -48,7 +93,7 @@
               "comp": "autocomplete",
               "getItems": {
                 "url": "https://api.insee.fr/melodi/range/${context.resourceId}",
-                "itemsResults": "data.range",
+                "itemsResults": "data.range.filter(item => item.concept.code !== 'GEO')",
                 "itemTitle": "item.concept.label.en",
                 "x-i18n-itemTitle": {
                   "fr": "item.concept.label.fr"

@@ -69,7 +69,8 @@
         "fr": "La date de modification du jeu de données."
       },
       "format": "date-time"
-    },"product": {
+    },
+    "product": {
       "type": "array",
       "description": "The list of files associated with the dataset.",
       "x-i18n-description": {
@@ -100,6 +101,22 @@
           "modified": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      }
+    },
+    "spatialResolution": {
+      "type": "array",
+      "description": "The spatial resolution of the dataset.",
+      "x-i18n-description": {
+        "fr": "La résolution spatiale du jeu de données."
+      },
+      "items":{
+        "type": "object",
+        "additionalProperties": true,
+        "properties":{
+          "id": {
+            "type": "string"
           }
         }
       }

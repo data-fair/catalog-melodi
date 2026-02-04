@@ -2,7 +2,7 @@ import type { MelodiConfig, MelodiDataset } from '#types'
 import capabilities from './capabilities.ts'
 import axios from '@data-fair/lib-node/axios.js'
 import type { CatalogPlugin, ListContext } from '@data-fair/types-catalogs'
-import { getLanguageContent } from './utils.ts'
+import { getLanguageContent } from './utils/common.ts'
 import memoize from 'memoizee'
 
 type ResourceList = Awaited<ReturnType<CatalogPlugin['list']>>['results']
@@ -41,8 +41,9 @@ const getAllDatasets = memoize(async (apiUrl:string | undefined): Promise<Melodi
     throw new Error("Configuration invalide : L'URL de l'API Melodi est manquante.")
   }
   try {
-    const response = await axios.get(`${apiUrl}/catalog/all`)
-    return response.data as MelodiDataset[]
+    const response : MelodiDataset[] = (await axios.get(`${apiUrl}/catalog/all`)).data
+    const filtredResponse = response.filter(item => item.spatialResolution?.some(res => res.id !== 'NAT') && item.product)
+    return filtredResponse
   } catch (e) {
     console.error(`Error fetching datasets from Melodi ${e}`)
     throw new Error('Erreur lors de la récupération des datasets Melodi (Attendez 1 minute puis rafraîchissez)')
@@ -78,9 +79,9 @@ export const list = async (config: ListContext<MelodiConfig, typeof capabilities
   if (config.params?.size || config.params?.page) {
     const page = Number(config.params?.page || 1) // default to page 1
     const size = Number(config.params?.size || 10) // default to 10 items per page
-    const start = (page - 1) * size // calculate start index, exemplar: page 2 with size 10 -> start = 10
-    const end = (start + size) // calculate end index, exemplar: page 2 with size 10 -> end = 20
-    res = res.slice(start, end) // slice the array to get the paginated results, exemplar: items from index 10 to 20
+    const start = (page - 1) * size // calculate start index, ex: page 2 with size 10 -> start = 10
+    const end = (start + size) // calculate end index, ex: page 2 with size 10 -> end = 20
+    res = res.slice(start, end) // slice the array to get the paginated results, ex: items from index 10 to 20
   }
 
   const catalog = prepareCatalog(res)
