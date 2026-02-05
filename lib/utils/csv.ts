@@ -224,7 +224,11 @@ export async function pivotCsv (
 
       // Add observed value to the correct column
       const rowObj = buffer.get(rowKey)! // non-null assertion as we just set it if missing, get the existing object
-      rowObj[finalColName] = obsVal // set the observed value next to all other columns
+
+      const previousValue = parseFloat((rowObj[finalColName] || '0').replace(',', '.'))
+      const newValue = parseFloat((obsVal || '0').replace(',', '.'))
+      const total = previousValue + newValue
+      rowObj[finalColName] = total.toString() // set the observed value next to all other columns
 
       // Note that this column exists
       dynamicHeaders.add(finalColName)
