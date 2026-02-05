@@ -2,7 +2,7 @@ import path from 'path'
 import StreamZip from 'node-stream-zip'
 import fs from 'fs'
 import readline from 'readline'
-import { MelodiRange } from '#types'
+import type { MelodiRange } from '#types'
 
 /**
  * Extracts a CSV file from a zip archive and saves it to the specified destination directory.
