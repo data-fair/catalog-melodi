@@ -2,6 +2,7 @@ import path from 'path'
 import StreamZip from 'node-stream-zip'
 import fs from 'fs'
 import readline from 'readline'
+import { MelodiRange } from '#types'
 
 /**
  * Extracts a CSV file from a zip archive and saves it to the specified destination directory.
@@ -126,6 +127,16 @@ export async function extractCsvWithFilters (
   }
 }
 
+interface PivotCsvOptions {
+  sourceCsvPath: string
+  destDir: string
+  resourceId: string
+  pivotConcepts: string[]
+  rangeTable: MelodiRange
+  log: any
+  nbLines: number
+}
+
 /**
  * Transforms a "long" CSV (standard INSEE Melodi) into a "wide" CSV (Cross-tabulation).
  * @param sourceCsvPath Path to the downloaded file
@@ -134,16 +145,33 @@ export async function extractCsvWithFilters (
  * @param pivotConcepts List of concepts (column names) to pivot
  */
 export async function pivotCsv (
-  sourceCsvPath: string,
-  destDir: string,
-  resourceId: string,
-  pivotConcepts: string[],
-  log: any,
-  nbLines: number
-): Promise<string> {
-  // Preparation
+  options: PivotCsvOptions
+): Promise<{ filePath: string, schema: any[] }> {
+  const {
+    sourceCsvPath,
+    destDir,
+    resourceId,
+    pivotConcepts,
+    rangeTable,
+    log,
+    nbLines
+  } = options
   const outputFileName = `${resourceId}_export.csv`
   const outputPath = path.join(destDir, outputFileName)
+
+  // { "SEXE": { "1": "Homme" }, "AGE": { "Y15": "15 ans" } }
+  const labelsMap: Record<string, Record<string, string>> = {}
+  if (rangeTable && Array.isArray(rangeTable)) {
+    for (const dim of rangeTable) {
+      const cCode = dim.concept.code
+      labelsMap[cCode] = {}
+      if (dim.values) {
+        for (const v of dim.values) {
+          labelsMap[cCode][v.code] = v.label?.fr || v.label?.en || v.code
+        }
+      }
+    }
+  }
 
   // Mandatory fixed columns in source
   const COL_TIME = 'TIME_PERIOD'
@@ -152,8 +180,8 @@ export async function pivotCsv (
 
   // Map<"GeoCode|Year", { "Columns...": Value }>, ex: "FR|2021" => { "agey15sexf": "123", ... }
   const buffer = new Map<string, Record<string, string>>()
-  // Set to record all dynamic columns encountered (ex: "agey15sexh", "agey15sexf", etc)
-  const dynamicHeaders = new Set<string>()
+  // Ex: "homme15" -> "Homme - 15 ans"
+  const dynamicHeadersMap = new Map<string, string>()
 
   let sourceHeaders: string[] = []
   const colIndices: Record<string, number> = {}
@@ -198,6 +226,7 @@ export async function pivotCsv (
 
       // Build dynamic column name
       const pivotParts: string[] = []
+      const titleParts: string[] = []
 
       for (const pc of pivotConcepts) {
         const idx = colIndices[pc]
@@ -205,11 +234,15 @@ export async function pivotCsv (
           const val = cols[idx]
           const cleanVal = val.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '') // clean value: lowercase, no accents, alphanumeric only
           pivotParts.push(`${cleanVal}`)
+
+          const humanLabel = labelsMap[pc]?.[val] || val
+          titleParts.push(humanLabel)
         }
       }
 
       // If no pivot concept found, call the column "value"
       const finalColName = pivotParts.length > 0 ? pivotParts.join('_') : 'value'
+      const finalColTitle = titleParts.length > 0 ? titleParts.join(' - ') : 'Valeur'
 
       // Store in buffer
       const rowKey = `${geoVal}|${timeVal}`
@@ -231,7 +264,9 @@ export async function pivotCsv (
       rowObj[finalColName] = total.toString() // set the observed value next to all other columns
 
       // Note that this column exists
-      dynamicHeaders.add(finalColName)
+      if (!dynamicHeadersMap.has(finalColName)) {
+        dynamicHeadersMap.set(finalColName, finalColTitle)
+      }
     }
 
     // Write final file
@@ -242,7 +277,7 @@ export async function pivotCsv (
     const fixedOutputHeaders = ['code_insee', 'periode']
 
     // Sort dynamic columns alphabetically for cleanliness
-    const sortedDynHeaders = Array.from(dynamicHeaders).sort()
+    const sortedDynHeaders = Array.from(dynamicHeadersMap.keys()).sort()
 
     // Write header line
     output.write([...fixedOutputHeaders, ...sortedDynHeaders].join(';') + '\n')
@@ -251,7 +286,7 @@ export async function pivotCsv (
     for (const rowData of buffer.values()) {
       const row: string[] = []
       // Geo (code_insee)
-      row.push(rowData[COL_GEO])
+      row.push(`"${rowData[COL_GEO]}"`)
       // Time (periode)
       row.push(rowData[COL_TIME])
       // Dynamic values
@@ -270,7 +305,34 @@ export async function pivotCsv (
       output.on('error', reject)
     })
 
-    return outputPath
+    const generatedSchema: any[] = [
+      {
+        key: 'code_insee',
+        title: 'Code Insee',
+        type: 'string',
+        format: 'geo-code',
+        'x-refersTo': 'http://www.w3.org/2004/02/skos/core#Concept'
+      },
+      {
+        key: 'periode',
+        title: 'Période',
+        type: 'string',
+        format: 'date'
+      }
+    ]
+
+    for (const header of sortedDynHeaders) {
+      generatedSchema.push({
+        key: header,
+        title: dynamicHeadersMap.get(header) || header, // "Homme - 15 ans"
+        type: 'number'
+      })
+    }
+
+    return {
+      filePath: outputPath,
+      schema: generatedSchema
+    }
   } finally {
     // Cleanup: Delete the source file
     if (fs.existsSync(sourceCsvPath)) {

@@ -33,9 +33,9 @@
       }
     },
     "pivotConcepts": {
-      "title": "Keep as columns",
+      "title": "Pivot Dimensions",
       "description": "Select concepts to transform into columns. The values will be combined (Cross-tabulation).",
-      "x-i18n-title": { "fr": "Garder en colonnes" },
+      "x-i18n-title": { "fr": "Dimensions à croiser" },
       "x-i18n-description": { "fr": "Sélectionnez les concepts à transformer en colonnes. Les valeurs seront combinées (Tableau croisé)." },
       "type": "array",
       "layout": {
@@ -44,8 +44,8 @@
         "getItems": {
           "url": "https://api.insee.fr/melodi/range/${context.resourceId}",
           "itemsResults": "data.range.filter(item => item.concept.code !== 'GEO' && item.concept.code !== 'TIME_PERIOD')",
-          "itemTitle": "item.concept.label.en",
-          "x-i18n-itemTitle": { "fr": "item.concept.label.fr" },
+          "itemTitle": "item.concept.label.en + ' (Ex: ' + (item.values || []).slice(0, 3).map(v => v.label.en).join(', ') + '...)'",
+          "x-i18n-itemTitle": { "fr": "item.concept.label.fr + ' (Ex: ' + (item.values || []).slice(0, 3).map(v => v.label.fr).join(', ') + '...)'" },
           "itemKey": "item.concept.code",
           "itemValue": "item.concept.code"
         }
@@ -94,10 +94,8 @@
               "getItems": {
                 "url": "https://api.insee.fr/melodi/range/${context.resourceId}",
                 "itemsResults": "data.range.filter(item => item.concept.code !== 'GEO')",
-                "itemTitle": "item.concept.label.en",
-                "x-i18n-itemTitle": {
-                  "fr": "item.concept.label.fr"
-                },
+                "itemTitle": "item.concept.label.en + ' (Ex: ' + (item.values || []).slice(0, 3).map(v => v.label.en).join(', ') + '...)'",
+                "x-i18n-itemTitle": { "fr": "item.concept.label.fr + ' (Ex: ' + (item.values || []).slice(0, 3).map(v => v.label.fr).join(', ') + '...)'" },
                 "itemKey": "item.concept.code",
                 "itemValue": "item.concept.code"
               }

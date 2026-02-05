@@ -15,18 +15,15 @@ import path from 'path'
  * @returns A promise that resolves to the Resource metadata.
  */
 const getMetaData = async ({ importConfig, resourceId, log }: GetResourceContext<MelodiConfig>): Promise<Resource> => {
-  let melodiDataset: MelodiDataset
-  let melodiRange: MelodiRange // range information for schema generation
+  let melodiDataset: MelodiDataset // range information for schema generation
   try {
     melodiDataset = (await axios.get(`https://api.insee.fr/melodi/catalog/${resourceId}`)).data
-    melodiRange = (await axios.get(`https://api.insee.fr/melodi/range/${resourceId}`)).data
   } catch (e) {
     await log.error(`Erreur lors de la récupération du dataset Melodi ${e instanceof Error ? e.message : String(e)}`)
-    throw new Error('Error fetching Melodi dataset metadata or range information')
+    throw new Error('Error fetching Melodi dataset metadata')
   }
   // Prepare Resource metadata, first file is used for size/format/origin of the uploaded csv
   const firstFile = melodiDataset.product && melodiDataset.product.length > 0 ? melodiDataset.product[0] : null
-  const melodiRangeTable = melodiRange.range
   let ressourceTitle : string
   // Determine resource title based on importConfig
   if (importConfig.useDatasetTitle) {
@@ -35,34 +32,7 @@ const getMetaData = async ({ importConfig, resourceId, log }: GetResourceContext
     ressourceTitle = melodiDataset.identifier ?? getLanguageContent(melodiDataset.title)
   }
   // Generate schema from melodiRangeTable, it will be injected in the Resource object for Data-Fair to use it
-  let generatedSchema: any[] = []
-  if (melodiRangeTable && Array.isArray(melodiRangeTable)) {
-    generatedSchema = melodiRangeTable.map((field: any) => {
-      if (field.concept.code === 'GEO' || field.concept.code === 'GEO_OBJECT') {
-        // Special handling for GEO fields
-        return {
-          key: field.concept.code.toLowerCase(),
-          title: field.concept.label?.fr || field.concept.label?.en || field.concept.code,
-          type: 'string',
-          format: 'geo-code'
-        }
-      }
-      // code -> label mapping
-      const labels: Record<string, string> = {}
-      if (field.values && Array.isArray(field.values)) {
-        field.values.forEach((val: any) => {
-          labels[val.code] = val.label?.fr || val.label?.en || val.code
-        })
-      }
-      // x-labels replaces the abbreviations for the real data in ui : example R -> 'Rural'
-      return {
-        key: field.concept.code.toLowerCase(),
-        title: field.concept.label?.fr || field.concept.label?.en || field.concept.code,
-        type: 'string',
-        'x-labels': Object.keys(labels).length > 0 ? labels : undefined
-      }
-    })
-  }
+
   return {
     id: melodiDataset.identifier,
     title: ressourceTitle,
@@ -76,7 +46,6 @@ const getMetaData = async ({ importConfig, resourceId, log }: GetResourceContext
       href: 'https://www.etalab.gouv.fr/wp-content/uploads/2017/04/ETALAB-Licence-Ouverte-v2.0.pdf'
     },
     filePath: '',
-    schema: generatedSchema
   } as Resource
 }
 
@@ -181,8 +150,8 @@ export const getResource = async (context: GetResourceContext<MelodiConfig>): Re
       selectedValues: [context.importConfig.geoLevel]
     })
   }
-  const nbLines = await countPagging(context.resourceId, activeFilters)
-  if (nbLines > 0 && nbLines <= 100000) {
+  const totalCount = await countPagging(context.resourceId, activeFilters)
+  if (totalCount > 0 && totalCount <= 100000) {
     const contextWithFilters = {
       ...context,
       importConfig: {
@@ -208,23 +177,67 @@ export const getResource = async (context: GetResourceContext<MelodiConfig>): Re
     }
     dataset.filePath = await downloadResourceZip(zipContext, dataset.origin)
   }
+  let melodiRangeTable : MelodiRange
+  try {
+    melodiRangeTable = (await axios.get(`https://api.insee.fr/melodi/range/${context.resourceId}`)).data.range
+  } catch {
+    throw new Error('Error fetching Melodi dataset metadata or range information')
+  }
   if (context.importConfig.pivotConcepts && context.importConfig.pivotConcepts.length > 0) {
     try {
       await context.log.step('Transformation')
-      const pivotedFilePath = await pivotCsv(
-        dataset.filePath,
-        context.tmpDir,
-        context.resourceId,
-        context.importConfig.pivotConcepts, // contains the list of concepts to pivot on
-        context.log,
-        nbLines
-      )
+      const pivotedFilePath = await pivotCsv({
+        sourceCsvPath: dataset.filePath,
+        destDir: context.tmpDir,
+        resourceId: context.resourceId,
+        pivotConcepts: context.importConfig.pivotConcepts,
+        rangeTable: melodiRangeTable,
+        log: context.log,
+        nbLines: totalCount
+      })
       // replace filePath with the pivoted file
-      dataset.filePath = pivotedFilePath
+      dataset.filePath = pivotedFilePath.filePath
+      dataset.schema = pivotedFilePath.schema
     } catch (error) {
       await context.log.error('Erreur lors du pivotage', error)
       throw error
     }
+  } else {
+    let generatedSchema: any[] = []
+    if (melodiRangeTable && Array.isArray(melodiRangeTable)) {
+      generatedSchema = melodiRangeTable.map((field: any) => {
+        if (field.concept.code === 'GEO' || field.concept.code === 'GEO_OBJECT') {
+          // Special handling for GEO fields
+          return {
+            key: field.concept.code.toLowerCase(),
+            title: field.concept.label?.fr || field.concept.label?.en || field.concept.code,
+            type: 'string',
+            format: 'geo-code',
+            'x-refersTo': 'http://www.w3.org/2004/02/skos/core#Concept'
+          }
+        }
+        // code -> label mapping
+        const labels: Record<string, string> = {}
+        if (field.values && Array.isArray(field.values)) {
+          field.values.forEach((val: any) => {
+            labels[val.code] = val.label?.fr || val.label?.en || val.code
+          })
+        }
+        // x-labels replaces the abbreviations for the real data in ui : example R -> 'Rural'
+        return {
+          key: field.concept.code.toLowerCase(),
+          title: field.concept.label?.fr || field.concept.label?.en || field.concept.code,
+          type: 'string',
+          'x-labels': Object.keys(labels).length > 0 ? labels : undefined
+        }
+      })
+    }
+    generatedSchema.push({
+      key: 'OBS_VALUE',
+      title: 'Valeur',
+      type: 'number'
+    })
+    dataset.schema = generatedSchema
   }
   return dataset
 }
