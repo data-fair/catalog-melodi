@@ -77,7 +77,7 @@ describe('catalog-Melodi', () => {
             resourceId
           })
         },
-        /not found|does not exist|range information|404/i,
+        /not found|does not exist|Error fetching Melodi|/i,
         'Should throw an error for non-existent resource'
       )
     })
