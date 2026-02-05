@@ -310,8 +310,7 @@ export async function pivotCsv (
         key: 'code_insee',
         title: 'Code Insee',
         type: 'string',
-        format: 'geo-code',
-        'x-refersTo': 'http://www.w3.org/2004/02/skos/core#Concept'
+        format: 'geo-code'
       },
       {
         key: 'periode',

@@ -212,8 +212,7 @@ export const getResource = async (context: GetResourceContext<MelodiConfig>): Re
             key: field.concept.code.toLowerCase(),
             title: field.concept.label?.fr || field.concept.label?.en || field.concept.code,
             type: 'string',
-            format: 'geo-code',
-            'x-refersTo': 'http://www.w3.org/2004/02/skos/core#Concept'
+            format: 'geo-code'
           }
         }
         // code -> label mapping
@@ -233,7 +232,7 @@ export const getResource = async (context: GetResourceContext<MelodiConfig>): Re
       })
     }
     generatedSchema.push({
-      key: 'OBS_VALUE',
+      key: 'obs_value',
       title: 'Valeur',
       type: 'number'
     })
