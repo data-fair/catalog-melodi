@@ -1,4 +1,4 @@
-import type { MelodiDataset, MelodiRange } from '#types'
+import type { MelodiDataset } from '#types'
 
 /**
  * Retrieves content in the preferred language (French) from an array of multilingual objects.
@@ -40,53 +40,6 @@ export function buildImportParams (filters: FilterConfig[]): Record<string, stri
   }
 
   return params
-}
-
-/**
- * Generates a standardized schema for the dataset based on the provided Melodi range table.
- * @param melodiRangeTable - The range table from Melodi metadata describing the dimensions and their values.
- * @returns An array representing the standardized schema for the dataset.
- */
-export function generateStandardSchema (melodiRangeTable: MelodiRange): any[] {
-  let schema: any[] = []
-
-  if (melodiRangeTable && Array.isArray(melodiRangeTable)) {
-    schema = melodiRangeTable.map((field: any) => {
-      // Gestion spéciale GEO
-      if (field.concept.code === 'GEO' || field.concept.code === 'GEO_OBJECT') {
-        return {
-          key: field.concept.code.toLowerCase(),
-          title: field.concept.label?.fr || field.concept.label?.en || field.concept.code,
-          type: 'string',
-          format: 'geo-code'
-        }
-      }
-
-      // Mapping des libellés (x-labels)
-      const labels: Record<string, string> = {}
-      if (field.values && Array.isArray(field.values)) {
-        field.values.forEach((val: any) => {
-          labels[val.code] = val.label?.fr || val.label?.en || val.code
-        })
-      }
-
-      return {
-        key: field.concept.code.toLowerCase(),
-        title: field.concept.label?.fr || field.concept.label?.en || field.concept.code,
-        type: 'string',
-        'x-labels': Object.keys(labels).length > 0 ? labels : undefined
-      }
-    })
-  }
-
-  // Ajout de la colonne Valeur
-  schema.push({
-    key: 'obs_value',
-    title: 'Valeur',
-    type: 'number'
-  })
-
-  return schema
 }
 
 /** Serializes an object of parameters into a URL-encoded query string.

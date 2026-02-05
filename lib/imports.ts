@@ -1,7 +1,7 @@
 import type { MelodiConfig, MelodiDataset, MelodiRange } from '#types'
 import axios from '@data-fair/lib-node/axios.js'
 import type { CatalogPlugin, GetResourceContext, Resource } from '@data-fair/types-catalogs'
-import { getLanguageContent, buildImportParams, serializeParams, generateStandardSchema } from './utils/common.ts'
+import { getLanguageContent, buildImportParams, serializeParams } from './utils/common.ts'
 import { downloadFileWithProgress } from './utils/download.ts'
 import { extractCsvWithFilters, pivotCsv } from './utils/csv.ts'
 import path from 'path'
@@ -167,7 +167,7 @@ export const getResource = async (context: GetResourceContext<MelodiConfig>): Re
     const zipFilters = [...baseFilters]
     if (context.importConfig.geoLevel && context.importConfig.geoLevel !== 'NAT') {
       zipFilters.push({
-        selectedConcept: 'GEO_OBJECT', // Use GEO_OBJECT for ZIP downloads as it is the correct dimension for geographic filtering in Melodi, becaus will filter on the geo-code column in the csv which is named "geo_object" and not "geo"
+        selectedConcept: 'GEO_OBJECT', // Use GEO_OBJECT for ZIP downloads as it is the correct dimension for geographic filtering in Melodi, because will filter on the geo-code column in the csv which is named "geo_object" and not "geo"
         selectedValues: [context.importConfig.geoLevel]
       })
     }
@@ -183,27 +183,23 @@ export const getResource = async (context: GetResourceContext<MelodiConfig>): Re
   } catch {
     throw new Error('Error fetching Melodi dataset metadata or range information')
   }
-  if (context.importConfig.pivotConcepts && context.importConfig.pivotConcepts.length > 0) {
-    try {
-      await context.log.step('Transformation')
-      const pivotedFilePath = await pivotCsv({
-        sourceCsvPath: dataset.filePath,
-        destDir: context.tmpDir,
-        resourceId: context.resourceId,
-        pivotConcepts: context.importConfig.pivotConcepts,
-        rangeTable: melodiRangeTable,
-        log: context.log,
-        nbLines: totalCount
-      })
-      // replace filePath with the pivoted file
-      dataset.filePath = pivotedFilePath.filePath
-      dataset.schema = pivotedFilePath.schema // use the schema generated during pivoting (with dynamic columns)
-    } catch (error) {
-      await context.log.error('Erreur lors du pivotage', error)
-      throw error
-    }
-  } else {
-    dataset.schema = generateStandardSchema(melodiRangeTable)
+  try {
+    await context.log.step('Transformation')
+    const pivotedFilePath = await pivotCsv({
+      sourceCsvPath: dataset.filePath,
+      destDir: context.tmpDir,
+      resourceId: context.resourceId,
+      pivotConcepts: context.importConfig.pivotConcepts,
+      rangeTable: melodiRangeTable,
+      log: context.log,
+      nbLines: totalCount
+    })
+    // replace filePath with the pivoted file
+    dataset.filePath = pivotedFilePath.filePath
+    dataset.schema = pivotedFilePath.schema // use the schema generated during pivoting (with dynamic columns)
+  } catch (error) {
+    await context.log.error('Erreur lors du pivotage', error)
+    throw error
   }
   return dataset
 }

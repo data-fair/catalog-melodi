@@ -222,14 +222,29 @@ export async function pivotCsv (
 
       if (!geoVal || !timeVal) continue
 
+      // sort pivot concepts to ensure a consistent column order, with Age/Sexe at the end
+      const sortedConcepts = [...pivotConcepts].sort((a, b) => {
+        const isEnd = (key: string) => {
+          const k = key.toLowerCase()
+          return k.includes('age') || k.includes('sex') || k.includes('sexe')
+        }
+        // if A is Age/Sexe and not B, A goes to the end (1)
+        if (isEnd(a) && !isEnd(b)) return 1
+        // if B is Age/Sexe and not A, B goes to the end (-1)
+        if (!isEnd(a) && isEnd(b)) return -1
+        // otherwise keep original order (0)
+        return 0
+      })
+
       // Build dynamic column name
       const pivotParts: string[] = []
       const titleParts: string[] = []
 
-      for (const pc of pivotConcepts) {
+      for (const pc of sortedConcepts) {
         const idx = colIndices[pc]
         if (idx !== undefined) {
           const val = cols[idx]
+
           const cleanVal = val.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '') // clean value: lowercase, no accents, alphanumeric only
           pivotParts.push(`${cleanVal}`)
 

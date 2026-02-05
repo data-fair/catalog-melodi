@@ -7,8 +7,8 @@
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "filters",
-    "geoLevel"
+    "geoLevel",
+    "pivotConcepts"
   ],
   "properties": {
     "geoLevel": {
@@ -39,8 +39,8 @@
       "x-i18n-title": { "fr": "Dimensions à croiser" },
       "x-i18n-description": { "fr": "Sélectionnez les concepts à transformer en colonnes. Les valeurs seront combinées (Tableau croisé)." },
       "type": "array",
+      "minItems": 1,
       "layout": {
-        "if": "!!parent.data?.geoLevel",
         "comp": "autocomplete",
         "getItems": {
           "url": "https://api.insee.fr/melodi/range/${context.resourceId}",
@@ -59,7 +59,6 @@
       "title": "Filters",
       "type": "array",
       "layout": {
-        "if": "!!parent.data?.geoLevel",
         "density": "comfortable"
       },
       "x-i18n-title": {
