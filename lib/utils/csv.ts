@@ -187,7 +187,7 @@ export async function pivotCsv (
   let progressLines = 0
   let lastLogged = Date.now()
   const logInterval = 500 // Log progress every 500ms
-
+  await log.task('Transformation des données', 'Transformation...', nbLines)
   try {
     // Read source file
     const fileStream = fs.createReadStream(sourceCsvPath)

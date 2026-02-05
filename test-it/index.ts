@@ -21,7 +21,7 @@ const getResourceParams = {
   catalogConfig,
   resourceId: 'DS_EC_DECES',
   secrets,
-  importConfig: { useDatasetTitle: true },
+  importConfig: { useDatasetTitle: true, pivotConcepts: ['AGE'], geoLevel: 'REG' },
   update: { metadata: true, schema: true },
   tmpDir,
   log: logFunctions
@@ -35,7 +35,7 @@ describe('catalog-Melodi', () => {
       params: {}
     })
 
-    assert.equal(res.count, 86, 'Expected 86 items in the root folder')
+    assert.equal(res.count, 86, 'Expected 87 items in the root folder')
     assert.equal(res.results.length, 86)
   })
 
