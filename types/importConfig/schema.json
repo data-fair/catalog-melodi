@@ -26,7 +26,8 @@
         "getItems": {
           "url": "https://api.insee.fr/melodi/catalog/${context.resourceId}",
           "itemsResults": "data.spatialResolution",
-          "itemTitle": "item.label.find(l => l.lang === 'fr' || l.lang === 'FR')?.content || item.id",
+          "itemTitle": "item.label.find(l => l.lang === 'en' || l.lang === 'EN')?.content || item.id",
+          "x-i18n-itemTitle": "item.label.find(l => l.lang === 'fr' || l.lang === 'FR')?.content || item.id",
           "itemKey": "item.id",
           "itemValue": "item.id"
         }
