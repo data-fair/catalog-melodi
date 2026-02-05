@@ -138,11 +138,9 @@ interface PivotCsvOptions {
 }
 
 /**
- * Transforms a "long" CSV (standard INSEE Melodi) into a "wide" CSV (Cross-tabulation).
- * @param sourceCsvPath Path to the downloaded file
- * @param destDir Destination directory
- * @param resourceId Resource ID (for file naming)
- * @param pivotConcepts List of concepts (column names) to pivot
+  * Transforms a flat CSV file into a pivoted format based on specified concepts.
+  * @param options - The options for the pivot transformation, including source and destination paths, concepts to pivot, and logging.
+  * @returns An object containing the file path of the generated CSV and its schema.
  */
 export async function pivotCsv (
   options: PivotCsvOptions
@@ -159,7 +157,7 @@ export async function pivotCsv (
   const outputFileName = `${resourceId}_export.csv`
   const outputPath = path.join(destDir, outputFileName)
 
-  // { "SEXE": { "1": "Homme" }, "AGE": { "Y15": "15 ans" } }
+  // { "SEXE": { "M": "Homme" }, "AGE": { "Y15": "15 ans" } }
   const labelsMap: Record<string, Record<string, string>> = {}
   if (rangeTable && Array.isArray(rangeTable)) {
     for (const dim of rangeTable) {
@@ -178,9 +176,9 @@ export async function pivotCsv (
   const COL_VAL = 'OBS_VALUE'
   const COL_GEO = 'GEO'
 
-  // Map<"GeoCode|Year", { "Columns...": Value }>, ex: "FR|2021" => { "agey15sexf": "123", ... }
+  // Map<"GeoCode|Year", { "Columns...": Value }>, ex: "FR|2021" => { "y15f": "123", ... }
   const buffer = new Map<string, Record<string, string>>()
-  // Ex: "homme15" -> "Homme - 15 ans"
+  // Ex: "h15" -> "Homme - 15 ans"
   const dynamicHeadersMap = new Map<string, string>()
 
   let sourceHeaders: string[] = []
@@ -235,14 +233,14 @@ export async function pivotCsv (
           const cleanVal = val.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '') // clean value: lowercase, no accents, alphanumeric only
           pivotParts.push(`${cleanVal}`)
 
-          const humanLabel = labelsMap[pc]?.[val] || val
+          const humanLabel = labelsMap[pc]?.[val] || val // get human-readable label if available
           titleParts.push(humanLabel)
         }
       }
 
       // If no pivot concept found, call the column "value"
-      const finalColName = pivotParts.length > 0 ? pivotParts.join('_') : 'value'
-      const finalColTitle = titleParts.length > 0 ? titleParts.join(' - ') : 'Valeur'
+      const finalColName = pivotParts.length > 0 ? pivotParts.join('') : 'value'
+      const finalColTitle = titleParts.length > 0 ? titleParts.join(' - ') : 'Valeur' // Human-readable column title for the schema
 
       // Store in buffer
       const rowKey = `${geoVal}|${timeVal}`
@@ -304,7 +302,7 @@ export async function pivotCsv (
       output.on('finish', resolve)
       output.on('error', reject)
     })
-
+    // Generate schema based on the dynamic columns we found + fixed columns
     const generatedSchema: any[] = [
       {
         key: 'code_insee',
@@ -319,7 +317,7 @@ export async function pivotCsv (
         format: 'date'
       }
     ]
-
+    // Add dynamic columns to schema
     for (const header of sortedDynHeaders) {
       generatedSchema.push({
         key: header,

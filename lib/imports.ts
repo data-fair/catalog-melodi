@@ -1,7 +1,7 @@
 import type { MelodiConfig, MelodiDataset, MelodiRange } from '#types'
 import axios from '@data-fair/lib-node/axios.js'
 import type { CatalogPlugin, GetResourceContext, Resource } from '@data-fair/types-catalogs'
-import { getLanguageContent, buildImportParams, serializeParams } from './utils/common.ts'
+import { getLanguageContent, buildImportParams, serializeParams, generateStandardSchema } from './utils/common.ts'
 import { downloadFileWithProgress } from './utils/download.ts'
 import { extractCsvWithFilters, pivotCsv } from './utils/csv.ts'
 import path from 'path'
@@ -167,7 +167,7 @@ export const getResource = async (context: GetResourceContext<MelodiConfig>): Re
     const zipFilters = [...baseFilters]
     if (context.importConfig.geoLevel && context.importConfig.geoLevel !== 'NAT') {
       zipFilters.push({
-        selectedConcept: 'GEO_OBJECT',
+        selectedConcept: 'GEO_OBJECT', // Use GEO_OBJECT for ZIP downloads as it is the correct dimension for geographic filtering in Melodi, becaus will filter on the geo-code column in the csv which is named "geo_object" and not "geo"
         selectedValues: [context.importConfig.geoLevel]
       })
     }
@@ -179,7 +179,7 @@ export const getResource = async (context: GetResourceContext<MelodiConfig>): Re
   }
   let melodiRangeTable : MelodiRange
   try {
-    melodiRangeTable = (await axios.get(`https://api.insee.fr/melodi/range/${context.resourceId}`)).data.range
+    melodiRangeTable = (await axios.get(`https://api.insee.fr/melodi/range/${context.resourceId}`)).data.range // fecth range information for schema generation
   } catch {
     throw new Error('Error fetching Melodi dataset metadata or range information')
   }
@@ -197,46 +197,13 @@ export const getResource = async (context: GetResourceContext<MelodiConfig>): Re
       })
       // replace filePath with the pivoted file
       dataset.filePath = pivotedFilePath.filePath
-      dataset.schema = pivotedFilePath.schema
+      dataset.schema = pivotedFilePath.schema // use the schema generated during pivoting (with dynamic columns)
     } catch (error) {
       await context.log.error('Erreur lors du pivotage', error)
       throw error
     }
   } else {
-    let generatedSchema: any[] = []
-    if (melodiRangeTable && Array.isArray(melodiRangeTable)) {
-      generatedSchema = melodiRangeTable.map((field: any) => {
-        if (field.concept.code === 'GEO' || field.concept.code === 'GEO_OBJECT') {
-          // Special handling for GEO fields
-          return {
-            key: field.concept.code.toLowerCase(),
-            title: field.concept.label?.fr || field.concept.label?.en || field.concept.code,
-            type: 'string',
-            format: 'geo-code'
-          }
-        }
-        // code -> label mapping
-        const labels: Record<string, string> = {}
-        if (field.values && Array.isArray(field.values)) {
-          field.values.forEach((val: any) => {
-            labels[val.code] = val.label?.fr || val.label?.en || val.code
-          })
-        }
-        // x-labels replaces the abbreviations for the real data in ui : example R -> 'Rural'
-        return {
-          key: field.concept.code.toLowerCase(),
-          title: field.concept.label?.fr || field.concept.label?.en || field.concept.code,
-          type: 'string',
-          'x-labels': Object.keys(labels).length > 0 ? labels : undefined
-        }
-      })
-    }
-    generatedSchema.push({
-      key: 'obs_value',
-      title: 'Valeur',
-      type: 'number'
-    })
-    dataset.schema = generatedSchema
+    dataset.schema = generateStandardSchema(melodiRangeTable)
   }
   return dataset
 }
