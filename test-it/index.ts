@@ -21,7 +21,7 @@ const getResourceParams = {
   catalogConfig,
   resourceId: 'DS_EC_DECES',
   secrets,
-  importConfig: { useDatasetTitle: true, pivotConcepts: ['AGE'], geoLevel: 'REG' },
+  importConfig: { useDatasetTitle: true, pivotConcepts: ['AGE'], geoLevel: 'REG', columnsToKeep: ['GEO'] },
   update: { metadata: true, schema: true },
   tmpDir,
   log: logFunctions
@@ -35,8 +35,8 @@ describe('catalog-Melodi', () => {
       params: {}
     })
 
-    assert.equal(res.count, 86, 'Expected 87 items in the root folder')
-    assert.equal(res.results.length, 86)
+    assert.equal(res.count, 87, 'Expected 87 items in the root folder')
+    assert.equal(res.results.length, 87)
   })
 
   it('should list resources and folder from a folder', { skip: 'This catalog does not support folders' }, async () => {})

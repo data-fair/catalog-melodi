@@ -27,8 +27,7 @@
         "getItems": {
           "url": "https://api.insee.fr/melodi/catalog/${context.resourceId}",
           "itemsResults": "data.spatialResolution",
-          "itemTitle": "item.label.find(l => l.lang === 'en' || l.lang === 'EN')?.content || item.id",
-          "x-i18n-itemTitle": "item.label.find(l => l.lang === 'fr' || l.lang === 'FR')?.content || item.id",
+          "itemTitle": "item.label.find(l => l.lang === 'fr' || l.lang === 'FR')?.content || item.id",
           "itemKey": "item.id",
           "itemValue": "item.id"
         }
@@ -48,7 +47,7 @@
         "comp": "autocomplete",
         "getItems": {
           "url": "https://api.insee.fr/melodi/range/${context.resourceId}",
-          "itemsResults": "data.range.filter(item => item.concept.code === 'GEO' || item.concept.code === 'TIME_PERIOD' || (item.values || []).length >= 15)",
+          "itemsResults": "data.range",
           "itemTitle": "item.concept.label.en || item.concept.code",
           "x-i18n-itemTitle": { "fr": "item.concept.label.fr || item.concept.code" },
           "itemKey": "item.concept.code",
@@ -64,10 +63,11 @@
       "type": "array",
       "minItems": 1,
       "layout": {
+        "if": "!!parent.data?.columnsToKeep",
         "comp": "autocomplete",
         "getItems": {
-          "url": "https://api.insee.fr/melodi/range/${context.resourceId}",
-          "itemsResults": "data.range.filter(item => item.concept.code !== 'GEO' && item.concept.code !== 'TIME_PERIOD' && (item.values || []).length < 15)",
+          "url": "https://api.insee.fr/melodi/range/${context.resourceId}#${(parent.data.columnsToKeep || []).length}",
+          "itemsResults": "data.range.filter(item => (item.values || []).length < 15 && !(parent.data.columnsToKeep || []).includes(item.concept.code))",
           "itemTitle": "item.concept.label.en + ' (Ex: ' + (item.values || []).slice(0, 3).map(v => v.label.en).join(', ') + '...)'",
           "x-i18n-itemTitle": { "fr": "item.concept.label.fr + ' (Ex: ' + (item.values || []).slice(0, 3).map(v => v.label.fr).join(', ') + '...)'" },
           "itemKey": "item.concept.code",
