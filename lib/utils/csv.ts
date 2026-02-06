@@ -132,6 +132,7 @@ interface PivotCsvOptions {
   destDir: string
   resourceId: string
   pivotConcepts: string[]
+  columnsToKeep: string[]
   rangeTable: MelodiRange
   log: any
   nbLines: number
@@ -150,6 +151,7 @@ export async function pivotCsv (
     destDir,
     resourceId,
     pivotConcepts,
+    columnsToKeep,
     rangeTable,
     log,
     nbLines
@@ -171,10 +173,7 @@ export async function pivotCsv (
     }
   }
 
-  // Mandatory fixed columns in source
-  const COL_TIME = 'TIME_PERIOD'
   const COL_VAL = 'OBS_VALUE'
-  const COL_GEO = 'GEO'
 
   // Map<"GeoCode|Year", { "Columns...": Value }>, ex: "FR|2021" => { "y15f": "123", ... }
   const buffer = new Map<string, Record<string, string>>()
@@ -209,18 +208,29 @@ export async function pivotCsv (
         cols.forEach((h, i) => { colIndices[h] = i }) // map column name -> index
 
         // Security check
-        if (colIndices[COL_GEO] === undefined || colIndices[COL_TIME] === undefined || colIndices[COL_VAL] === undefined) {
-          throw new Error('Missing required columns')
+        if (colIndices[COL_VAL] === undefined) {
+          throw new Error('Colonne OBS_VALUE manquante')
         }
         continue
       }
 
       // Retrieve fixed data
-      const geoVal = cols[colIndices[COL_GEO]]
-      const timeVal = cols[colIndices[COL_TIME]]
       const obsVal = cols[colIndices[COL_VAL]]
 
-      if (!geoVal || !timeVal) continue
+      const rowKeyParts: string[] = []
+      const keptValues: Record<string, string> = {}
+
+      for (const colKeep of columnsToKeep) {
+        const idx = colIndices[colKeep]
+        if (idx !== undefined) {
+          const val = cols[idx]
+          rowKeyParts.push(val)
+          keptValues[colKeep] = val // store fixed value for this column (ex: "GEO": "01", "TIME_PERIOD": "2021")
+        } else {
+          rowKeyParts.push('')
+        }
+      }
+      const rowKey = rowKeyParts.join('|') // ex: "FR|2021"
 
       // sort pivot concepts to ensure a consistent column order, with Age/Sexe at the end
       const sortedConcepts = [...pivotConcepts].sort((a, b) => {
@@ -257,14 +267,10 @@ export async function pivotCsv (
       const finalColName = pivotParts.length > 0 ? pivotParts.join('') : 'value'
       const finalColTitle = titleParts.length > 0 ? titleParts.join(' - ') : 'Valeur' // Human-readable column title for the schema
 
-      // Store in buffer
-      const rowKey = `${geoVal}|${timeVal}`
-
-      // If this row (Geo+Date) doesn't exist yet, initialize it
+      // Initialize the row in buffer if not already there
       if (!buffer.has(rowKey)) {
         buffer.set(rowKey, {
-          [COL_GEO]: geoVal,
-          [COL_TIME]: timeVal
+          ...keptValues // { GEO: "01004", TIME_PERIOD: "2021" }
         })
       }
 
@@ -286,22 +292,24 @@ export async function pivotCsv (
     const output = fs.createWriteStream(outputPath)
 
     // Define final headers
-    // Rename for cleanliness: code_insee, periode
-    const fixedOutputHeaders = ['code_insee', 'periode']
+    const keptHeadersOutput = columnsToKeep.map(c => c.toLowerCase())
 
     // Sort dynamic columns alphabetically for cleanliness
     const sortedDynHeaders = Array.from(dynamicHeadersMap.keys()).sort()
 
     // Write header line
-    output.write([...fixedOutputHeaders, ...sortedDynHeaders].join(';') + '\n')
+    output.write([...keptHeadersOutput, ...sortedDynHeaders].join(';') + '\n')
 
     // Write data line by line
     for (const rowData of buffer.values()) {
       const row: string[] = []
-      // Geo (code_insee)
-      row.push(`"${rowData[COL_GEO]}"`)
-      // Time (periode)
-      row.push(rowData[COL_TIME])
+      for (const colOriginalName of columnsToKeep) {
+        let val = rowData[colOriginalName] || ''
+        if (colOriginalName === 'GEO' || colOriginalName === 'CODE_INSEE') {
+          val = `"${val}"`
+        }
+        row.push(val)
+      }
       // Dynamic values
       for (const header of sortedDynHeaders) {
         // If value exists put it, otherwise '0'
@@ -318,20 +326,26 @@ export async function pivotCsv (
       output.on('error', reject)
     })
     // Generate schema based on the dynamic columns we found + fixed columns
-    const generatedSchema: any[] = [
-      {
-        key: 'code_insee',
-        title: 'Code Insee',
-        type: 'string',
-        format: 'geo-code'
-      },
-      {
-        key: 'periode',
-        title: 'Période',
-        type: 'string',
-        format: 'date'
+    const generatedSchema: any[] = []
+
+    for (const colKeep of columnsToKeep) {
+      const lowerKey = colKeep.toLowerCase()
+      const colDef: any = {
+        key: lowerKey,
+        title: colKeep,
+        type: 'string'
       }
-    ]
+
+      if (colKeep === 'GEO') {
+        colDef.title = 'Code Insee'
+        colDef.format = 'geo-code'
+      } else if (colKeep === 'TIME_PERIOD') {
+        colDef.title = 'Période'
+        colDef.format = 'date'
+      }
+
+      generatedSchema.push(colDef)
+    }
     // Add dynamic columns to schema
     for (const header of sortedDynHeaders) {
       generatedSchema.push({

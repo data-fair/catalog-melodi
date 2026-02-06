@@ -8,7 +8,8 @@
   "additionalProperties": false,
   "required": [
     "geoLevel",
-    "pivotConcepts"
+    "pivotConcepts",
+    "columnsToKeep"
   ],
   "properties": {
     "geoLevel": {
@@ -33,6 +34,28 @@
         }
       }
     },
+    "columnsToKeep": {
+      "title": "Columns to keep",
+      "description": "Select the dimensions to include in the file.",
+      "x-i18n-title": { "fr": "Colonnes à conserver" },
+      "x-i18n-description": { "fr": "Sélectionnez les dimensions à inclure dans le fichier." },
+      "type": "array",
+      "uniqueItems": true,
+      "default": ["GEO", "TIME_PERIOD"], 
+      "items": { "type": "string" },
+      "minItems": 1,
+      "layout": {
+        "comp": "autocomplete",
+        "getItems": {
+          "url": "https://api.insee.fr/melodi/range/${context.resourceId}",
+          "itemsResults": "data.range.filter(item => item.concept.code === 'GEO' || item.concept.code === 'TIME_PERIOD' || (item.values || []).length >= 15)",
+          "itemTitle": "item.concept.label.en || item.concept.code",
+          "x-i18n-itemTitle": { "fr": "item.concept.label.fr || item.concept.code" },
+          "itemKey": "item.concept.code",
+          "itemValue": "item.concept.code"
+        }
+      }
+    },
     "pivotConcepts": {
       "title": "Pivot Dimensions",
       "description": "Select concepts to transform into columns. The values will be combined (Cross-tabulation).",
@@ -44,7 +67,7 @@
         "comp": "autocomplete",
         "getItems": {
           "url": "https://api.insee.fr/melodi/range/${context.resourceId}",
-          "itemsResults": "data.range.filter(item => item.concept.code !== 'GEO' && item.concept.code !== 'TIME_PERIOD')",
+          "itemsResults": "data.range.filter(item => item.concept.code !== 'GEO' && item.concept.code !== 'TIME_PERIOD' && (item.values || []).length < 15)",
           "itemTitle": "item.concept.label.en + ' (Ex: ' + (item.values || []).slice(0, 3).map(v => v.label.en).join(', ') + '...)'",
           "x-i18n-itemTitle": { "fr": "item.concept.label.fr + ' (Ex: ' + (item.values || []).slice(0, 3).map(v => v.label.fr).join(', ') + '...)'" },
           "itemKey": "item.concept.code",
