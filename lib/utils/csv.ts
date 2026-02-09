@@ -339,11 +339,18 @@ export async function pivotCsv (
     }
 
     for (const colKeep of columnsToKeep) {
+      const labels = labelsMap[colKeep] || {}
+      const numLabels = Object.keys(labels).length
+
       const lowerKey = colKeep.toLowerCase()
       const colDef: any = {
         key: lowerKey,
         title: conceptsLabelsMap[colKeep] || colKeep,
         type: 'string'
+      }
+
+      if (numLabels > 0 && numLabels < 15) {
+        colDef['x-labels'] = labels
       }
 
       if (colKeep === 'GEO') {

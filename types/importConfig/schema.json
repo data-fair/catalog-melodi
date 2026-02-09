@@ -40,7 +40,7 @@
       "x-i18n-description": { "fr": "Sélectionnez les dimensions à inclure dans le fichier." },
       "type": "array",
       "uniqueItems": true,
-      "default": ["GEO", "TIME_PERIOD"], 
+      "default": ["TIME_PERIOD"], 
       "items": { "type": "string" },
       "minItems": 1,
       "layout": {
@@ -48,8 +48,8 @@
         "getItems": {
           "url": "https://api.insee.fr/melodi/range/${context.resourceId}",
           "itemsResults": "data.range",
-          "itemTitle": "item.concept.label.en || item.concept.code",
-          "x-i18n-itemTitle": { "fr": "item.concept.label.fr || item.concept.code" },
+          "itemTitle": "item.concept.label.en + ' (Ex: ' + (item.values || []).slice(0, 3).map(v => v.label.en).join(', ') + '...)'",
+          "x-i18n-itemTitle": { "fr": "item.concept.label.fr + ' (Ex: ' + (item.values || []).slice(0, 3).map(v => v.label.fr).join(', ') + '...)'" },
           "itemKey": "item.concept.code",
           "itemValue": "item.concept.code"
         }

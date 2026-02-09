@@ -32,16 +32,14 @@ const getMetaData = async ({ importConfig, resourceId, log }: GetResourceContext
     ressourceTitle = melodiDataset.identifier ?? getLanguageContent(melodiDataset.title)
   }
   // Generate schema from melodiRangeTable, it will be injected in the Resource object for Data-Fair to use it
-  const relation = melodiDataset.relations?.find(r => r.url && r.url.length > 0)
-  const origin = relation ? getLanguageContent(relation.url as any) : ''
   return {
     id: melodiDataset.identifier,
-    title: ressourceTitle,
+    title: `${ressourceTitle} - ${importConfig.geoLevel}`,
     description: getLanguageContent(melodiDataset.description),
     updatedAt: melodiDataset.modified,
     size: firstFile?.byteSize ?? 0,
     format: firstFile?.format ?? 'unknown',
-    origin,
+    origin: `https://catalogue-donnees.insee.fr/fr/catalogue/recherche/${resourceId}`,
     license: {
       href: 'https://www.etalab.gouv.fr/licence-ouverte-open-licence',
       title: 'Licence Ouverte / Open Licence version 2.0'
