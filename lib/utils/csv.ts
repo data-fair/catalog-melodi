@@ -132,7 +132,7 @@ interface PivotCsvOptions {
   destDir: string
   resourceId: string
   pivotConcepts: string[]
-  columnsToKeep: string[]
+  inputColumnsToKeep: string[]
   rangeTable: MelodiRange
   log: any
   nbLines: number
@@ -152,14 +152,18 @@ export async function pivotCsv (
     destDir,
     resourceId,
     pivotConcepts,
-    columnsToKeep,
+    inputColumnsToKeep,
     rangeTable,
     log,
     nbLines
   } = options
+  const columnsToKeep = [...inputColumnsToKeep].sort((a, b) => {
+    if (a === 'GEO') return -1
+    if (b === 'GEO') return 1
+    return 0
+  })
   const outputFileName = `${resourceId}_export.csv`
   const outputPath = path.join(destDir, outputFileName)
-
   // { "SEXE": { "M": "Homme" }, "AGE": { "Y15": "15 ans" } }
   const labelsMap: Record<string, Record<string, string>> = {}
   // { "SEXE": "Sexe", "AGE": "Tranche d'âge" }
@@ -297,6 +301,10 @@ export async function pivotCsv (
 
     // Define final headers
     const keptHeadersOutput = columnsToKeep.map(c => c.toLowerCase())
+    if (keptHeadersOutput.includes('geo')) {
+      const geoIndex = keptHeadersOutput.indexOf('geo')
+      if (geoIndex !== -1) keptHeadersOutput[geoIndex] = `code_${options.geoLevel.toLowerCase()}`
+    }
 
     // Sort dynamic columns alphabetically for cleanliness
     const sortedDynHeaders = Array.from(dynamicHeadersMap.keys()).sort()
@@ -338,6 +346,25 @@ export async function pivotCsv (
       REG: 'http://rdf.insee.fr/def/geo#codeRegion'
     }
 
+    const geoLabelMap: Record<string, string> = {
+      NAT: 'Niveau national',
+      FRANCE: 'France',
+      REG: 'Région',
+      DEP: 'Département',
+      COM: 'Commune',
+      ARM: 'Arrondissement municipal',
+      EPCI: 'Etablissement public de coopération intercommunal',
+      ARR: 'Arrondissement',
+      QPV2024: 'Quartiers prioritaires de la politique de la ville 2024',
+      AAV2020: "Aire d'attraction des villes 2020",
+      UU2020: 'Unité urbaine 2020',
+      ZE2020: "Zones d'emploi 2020",
+      BV2022: 'Bassin de vie 2022',
+      IRIS: 'IRIS',
+      OTHER: 'Autre type de territoires',
+      COMER: 'Collectivité outre-mer'
+    }
+
     for (const colKeep of columnsToKeep) {
       const labels = labelsMap[colKeep] || {}
       const numLabels = Object.keys(labels).length
@@ -349,12 +376,14 @@ export async function pivotCsv (
         type: 'string'
       }
 
-      if (numLabels > 0 && numLabels < 15) {
+      if (numLabels > 0 && numLabels < 30) {
         colDef['x-labels'] = labels
       }
 
       if (colKeep === 'GEO') {
-        colDef.title = 'Code Insee'
+        const geoLabel = geoLabelMap[options.geoLevel] || options.geoLevel
+        colDef.title = `Code ${geoLabel}`
+        colDef.key = `code_${options.geoLevel.toLowerCase()}`
         colDef.format = 'geo-code'
         colDef['x-refersTo'] = geoRefersToMap[options.geoLevel] || geoRefersToMap['COM']
       } else if (colKeep === 'TIME_PERIOD') {

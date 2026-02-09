@@ -20,7 +20,7 @@ const prepareCatalog = (melodiCatalog: MelodiDataset[]): ResourceList => {
     catalog.push({
       id: melodiDataset.identifier,
       title: getLanguageContent(melodiDataset.title) ?? melodiDataset.identifier,
-      description: getLanguageContent(melodiDataset.description) ?? '',
+      // description: getLanguageContent(melodiDataset.description) ?? '', // not use
       updatedAt: melodiDataset.modified,
       size: firstFile?.byteSize ?? 0,
       format: firstFile?.format ?? 'unknown',
@@ -76,13 +76,13 @@ export const list = async (config: ListContext<MelodiConfig, typeof capabilities
     res = filteredList
     totalCount = filteredList.length // update total count based on filtered list
   }
-  if (config.params?.size || config.params?.page) {
-    const page = Number(config.params?.page || 1) // default to page 1
-    const size = Number(config.params?.size || 10) // default to 10 items per page
-    const start = (page - 1) * size // calculate start index, ex: page 2 with size 10 -> start = 10
-    const end = (start + size) // calculate end index, ex: page 2 with size 10 -> end = 20
-    res = res.slice(start, end) // slice the array to get the paginated results, ex: items from index 10 to 20
-  }
+  // if (config.params?.size || config.params?.page) {
+  //   const page = Number(config.params?.page || 1) // default to page 1
+  //   const size = Number(config.params?.size || 10) // default to 10 items per page
+  //   const start = (page - 1) * size // calculate start index, ex: page 2 with size 10 -> start = 10
+  //   const end = (start + size) // calculate end index, ex: page 2 with size 10 -> end = 20
+  //   res = res.slice(start, end) // slice the array to get the paginated results, ex: items from index 10 to 20
+  // }
 
   const catalog = prepareCatalog(res)
   return {

@@ -189,7 +189,7 @@ export const getResource = async (context: GetResourceContext<MelodiConfig>): Re
       destDir: context.tmpDir,
       resourceId: context.resourceId,
       pivotConcepts: context.importConfig.pivotConcepts,
-      columnsToKeep: context.importConfig.columnsToKeep,
+      inputColumnsToKeep: context.importConfig.columnsToKeep,
       rangeTable: melodiRangeTable,
       log: context.log,
       geoLevel: context.importConfig.geoLevel,
