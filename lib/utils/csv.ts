@@ -161,9 +161,12 @@ export async function pivotCsv (
 
   // { "SEXE": { "M": "Homme" }, "AGE": { "Y15": "15 ans" } }
   const labelsMap: Record<string, Record<string, string>> = {}
+  // { "SEXE": "Sexe", "AGE": "Tranche d'âge" }
+  const conceptsLabelsMap: Record<string, string> = {}
   if (rangeTable && Array.isArray(rangeTable)) {
     for (const dim of rangeTable) {
       const cCode = dim.concept.code
+      conceptsLabelsMap[cCode] = dim.concept.label?.fr || dim.concept.label?.en || cCode
       labelsMap[cCode] = {}
       if (dim.values) {
         for (const v of dim.values) {
@@ -332,7 +335,7 @@ export async function pivotCsv (
       const lowerKey = colKeep.toLowerCase()
       const colDef: any = {
         key: lowerKey,
-        title: colKeep,
+        title: conceptsLabelsMap[colKeep] || colKeep,
         type: 'string'
       }
 
