@@ -70,6 +70,31 @@
       },
       "format": "date-time"
     },
+    "relations": {
+      "type": "array",
+      "description": "Related resources and documentation.",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "url": {
+            "type": "array",
+            "description": "URL of the related resource.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "lang": {
+                  "type": "string"
+                },
+                "content": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "product": {
       "type": "array",
       "description": "The list of files associated with the dataset.",

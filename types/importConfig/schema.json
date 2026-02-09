@@ -17,9 +17,9 @@
       "x-i18n-title": {
         "fr": "Niveau géographique"
       },
-      "description": "Select the geographic level to import. Note: The 'NAT' (National) level is typically not suitable for local territorial analysis.",
+      "description": "Select the geographic level to import",
       "x-i18n-description": {
-        "fr": "Sélectionnez le niveau géographique à importer. Note : Le niveau 'NAT' (National) n'est généralement pas adapté pour une analyse territoriale locale."
+        "fr": "Sélectionnez le niveau géographique à importer"
       },
       "type": "string",
       "layout": {

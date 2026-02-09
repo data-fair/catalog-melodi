@@ -32,7 +32,8 @@ const getMetaData = async ({ importConfig, resourceId, log }: GetResourceContext
     ressourceTitle = melodiDataset.identifier ?? getLanguageContent(melodiDataset.title)
   }
   // Generate schema from melodiRangeTable, it will be injected in the Resource object for Data-Fair to use it
-
+  const relation = melodiDataset.relations?.find(r => r.url && r.url.length > 0)
+  const origin = relation ? getLanguageContent(relation.url as any) : ''
   return {
     id: melodiDataset.identifier,
     title: ressourceTitle,
@@ -40,12 +41,12 @@ const getMetaData = async ({ importConfig, resourceId, log }: GetResourceContext
     updatedAt: melodiDataset.modified,
     size: firstFile?.byteSize ?? 0,
     format: firstFile?.format ?? 'unknown',
-    origin: firstFile?.accessURL ?? '',
+    origin,
     license: {
-      title: 'Licence Ouverte / Open Licence 2.0',
-      href: 'https://www.etalab.gouv.fr/wp-content/uploads/2017/04/ETALAB-Licence-Ouverte-v2.0.pdf'
+      href: 'https://www.etalab.gouv.fr/licence-ouverte-open-licence',
+      title: 'Licence Ouverte / Open Licence version 2.0'
     },
-    filePath: '',
+    filePath: firstFile?.accessURL ?? '',
   } as Resource
 }
 
@@ -139,7 +140,7 @@ const downloadResourceCsv = async ({ importConfig, resourceId, tmpDir, log }: Ge
 export const getResource = async (context: GetResourceContext<MelodiConfig>): ReturnType<CatalogPlugin['getResource']> => {
   await context.log.step('Téléchargement du fichier')
   const dataset = await getMetaData(context)
-  if (!dataset.origin) {
+  if (!dataset.filePath) {
     throw new Error(`Le dataset ${dataset.id} ne possède pas de fichier associé.`)
   }
   const baseFilters = context.importConfig.filters ? [...context.importConfig.filters] : []
@@ -175,7 +176,7 @@ export const getResource = async (context: GetResourceContext<MelodiConfig>): Re
       ...context,
       importConfig: { ...context.importConfig, filters: zipFilters }
     }
-    dataset.filePath = await downloadResourceZip(zipContext, dataset.origin)
+    dataset.filePath = await downloadResourceZip(zipContext, dataset.filePath)
   }
   let melodiRangeTable : MelodiRange
   try {
