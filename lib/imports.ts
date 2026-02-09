@@ -193,6 +193,7 @@ export const getResource = async (context: GetResourceContext<MelodiConfig>): Re
       columnsToKeep: context.importConfig.columnsToKeep,
       rangeTable: melodiRangeTable,
       log: context.log,
+      geoLevel: context.importConfig.geoLevel,
       nbLines: totalCount
     })
     // replace filePath with the pivoted file

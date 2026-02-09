@@ -136,6 +136,7 @@ interface PivotCsvOptions {
   rangeTable: MelodiRange
   log: any
   nbLines: number
+  geoLevel: string
 }
 
 /**
@@ -330,6 +331,12 @@ export async function pivotCsv (
     })
     // Generate schema based on the dynamic columns we found + fixed columns
     const generatedSchema: any[] = []
+    const geoRefersToMap: Record<string, string> = {
+      COM: 'http://rdf.insee.fr/def/geo#codeCommune',
+      EPCI: 'http://rdf.insee.fr/def/geo#codeEPCI',
+      DEP: 'http://rdf.insee.fr/def/geo#codeDepartement',
+      REG: 'http://rdf.insee.fr/def/geo#codeRegion'
+    }
 
     for (const colKeep of columnsToKeep) {
       const lowerKey = colKeep.toLowerCase()
@@ -342,6 +349,7 @@ export async function pivotCsv (
       if (colKeep === 'GEO') {
         colDef.title = 'Code Insee'
         colDef.format = 'geo-code'
+        colDef['x-refersTo'] = geoRefersToMap[options.geoLevel] || geoRefersToMap['COM']
       } else if (colKeep === 'TIME_PERIOD') {
         colDef.title = 'Période'
         colDef.format = 'date'
