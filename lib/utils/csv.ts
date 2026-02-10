@@ -385,7 +385,7 @@ export async function pivotCsv (
         colDef.title = `Code ${geoLabel}`
         colDef.key = `code_${options.geoLevel.toLowerCase()}`
         colDef.format = 'geo-code'
-        colDef['x-refersTo'] = geoRefersToMap[options.geoLevel] || geoRefersToMap['COM']
+        colDef['x-refersTo'] = geoRefersToMap[options.geoLevel] || ''
       } else if (colKeep === 'TIME_PERIOD') {
         colDef.title = 'Période'
         colDef.format = 'date'
