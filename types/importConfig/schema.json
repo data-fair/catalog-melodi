@@ -116,7 +116,7 @@
               "comp": "autocomplete",
               "getItems": {
                 "url": "https://api.insee.fr/melodi/range/${context.resourceId}",
-                "itemsResults": "(data.range || []).filter(item => item.concept && item.concept.code !== 'GEO')",
+                "itemsResults": "(data.range || []).filter(item => item.concept)",
                 "itemTitle": "(item.concept.label && item.concept.label.en) + ' (Ex: ' + (item.values || []).slice(0, 3).map(v => v.label.en).join(', ') + '...)'",
                 "x-i18n-itemTitle": { "fr": "(item.concept.label && item.concept.label.fr) + ' (Ex: ' + (item.values || []).slice(0, 3).map(v => v.label.fr).join(', ') + '...)'" },
                 "itemKey": "item.concept.code",
