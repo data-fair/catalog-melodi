@@ -144,7 +144,7 @@
               "if": "!!parent.data?.selectedConcept",
               "comp": "autocomplete",
               "getItems": {
-                "url": "https://api.insee.fr/melodi/range/${context.resourceId}",
+                "url": "https://api.insee.fr/melodi/range/${context.resourceId}#${(parent.data.selectedConcept || []).length}",
                 "itemsResults": "(data.range.find(c => c.concept.code === parent.data.selectedConcept)?.values || [])",
                 "itemTitle": "item.label.en",
                 "x-i18n-itemTitle": {
