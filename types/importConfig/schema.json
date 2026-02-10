@@ -48,8 +48,8 @@
         "getItems": {
           "url": "https://api.insee.fr/melodi/range/${context.resourceId}",
           "itemsResults": "(data.range || []).filter(i => i.concept)",
-          "itemTitle": "(item.concept.label && item.concept.label.en) || item.concept.code",
-          "x-i18n-itemTitle": { "fr": "(item.concept.label && item.concept.label.fr) || item.concept.code" },
+          "itemTitle": "(item.concept.label && item.concept.label.en) + ' (Ex: ' + (item.values || []).slice(0, 3).map(v => v.label.en).join(', ') + '...)'",
+          "x-i18n-itemTitle": { "fr": "(item.concept.label && item.concept.label.fr) + ' (Ex: ' + (item.values || []).slice(0, 3).map(v => v.label.fr).join(', ') + '...)'" },
           "itemKey": "item.concept.code",
           "itemValue": "item.concept.code"
         }
