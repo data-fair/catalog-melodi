@@ -47,9 +47,9 @@
         "comp": "autocomplete",
         "getItems": {
           "url": "https://api.insee.fr/melodi/range/${context.resourceId}",
-          "itemsResults": "data.range",
-          "itemTitle": "item.concept.label.en + ' (Ex: ' + (item.values || []).slice(0, 3).map(v => v.label.en).join(', ') + '...)'",
-          "x-i18n-itemTitle": { "fr": "item.concept.label.fr + ' (Ex: ' + (item.values || []).slice(0, 3).map(v => v.label.fr).join(', ') + '...)'" },
+          "itemsResults": "(data.range || []).filter(i => i.concept)",
+          "itemTitle": "(item.concept.label && item.concept.label.en) || item.concept.code",
+          "x-i18n-itemTitle": { "fr": "(item.concept.label && item.concept.label.fr) || item.concept.code" },
           "itemKey": "item.concept.code",
           "itemValue": "item.concept.code"
         }
@@ -67,9 +67,9 @@
         "comp": "autocomplete",
         "getItems": {
           "url": "https://api.insee.fr/melodi/range/${context.resourceId}#${(parent.data.columnsToKeep || []).length}",
-          "itemsResults": "data.range.filter(item => (item.values || []).length < 15 && !(parent.data.columnsToKeep || []).includes(item.concept.code))",
-          "itemTitle": "item.concept.label.en + ' (Ex: ' + (item.values || []).slice(0, 3).map(v => v.label.en).join(', ') + '...)'",
-          "x-i18n-itemTitle": { "fr": "item.concept.label.fr + ' (Ex: ' + (item.values || []).slice(0, 3).map(v => v.label.fr).join(', ') + '...)'" },
+          "itemsResults": "(data.range || []).filter(item => (item.values || []).length < 15 && item.concept && !(parent.data.columnsToKeep || []).includes(item.concept.code))",
+          "itemTitle": "(item.concept.label && item.concept.label.en) + ' (Ex: ' + (item.values || []).slice(0, 3).map(v => v.label.en).join(', ') + '...)'",
+          "x-i18n-itemTitle": { "fr": "(item.concept.label && item.concept.label.fr) + ' (Ex: ' + (item.values || []).slice(0, 3).map(v => v.label.fr).join(', ') + '...)'" },
           "itemKey": "item.concept.code",
           "itemValue": "item.concept.code"
         }
@@ -116,9 +116,9 @@
               "comp": "autocomplete",
               "getItems": {
                 "url": "https://api.insee.fr/melodi/range/${context.resourceId}",
-                "itemsResults": "data.range.filter(item => item.concept.code !== 'GEO')",
-                "itemTitle": "item.concept.label.en + ' (Ex: ' + (item.values || []).slice(0, 3).map(v => v.label.en).join(', ') + '...)'",
-                "x-i18n-itemTitle": { "fr": "item.concept.label.fr + ' (Ex: ' + (item.values || []).slice(0, 3).map(v => v.label.fr).join(', ') + '...)'" },
+                "itemsResults": "(data.range || []).filter(item => item.concept && item.concept.code !== 'GEO')",
+                "itemTitle": "(item.concept.label && item.concept.label.en) + ' (Ex: ' + (item.values || []).slice(0, 3).map(v => v.label.en).join(', ') + '...)'",
+                "x-i18n-itemTitle": { "fr": "(item.concept.label && item.concept.label.fr) + ' (Ex: ' + (item.values || []).slice(0, 3).map(v => v.label.fr).join(', ') + '...)'" },
                 "itemKey": "item.concept.code",
                 "itemValue": "item.concept.code"
               }
@@ -144,8 +144,8 @@
               "if": "!!parent.data?.selectedConcept",
               "comp": "autocomplete",
               "getItems": {
-                "url": "https://api.insee.fr/melodi/range/${context.resourceId}#${(parent.data.selectedConcept || []).length}",
-                "itemsResults": "(data.range.find(c => c.concept.code === parent.data.selectedConcept)?.values || [])",
+                "url": "https://api.insee.fr/melodi/range/${context.resourceId}",
+                "itemsResults": "((data.range || []).find(c => c.concept && c.concept.code === parent.data.selectedConcept)?.values || [])",
                 "itemTitle": "item.label.en",
                 "x-i18n-itemTitle": {
                   "fr": "item.label.fr"

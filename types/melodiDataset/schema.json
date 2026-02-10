@@ -44,6 +44,28 @@
         }
       }
     },
+    "subtitle": {
+      "type": "array",
+      "title": "Dataset Subtitle",
+      "x-i18n-title": {
+        "fr": "Sous-titre du jeu de données"
+      },
+      "description": "The subtitle of the dataset.",
+      "x-i18n-description": {
+        "fr": "Le sous-titre du jeu de données."
+      },
+      "items": {
+        "type": "object",
+        "properties": {
+          "lang": {
+            "type": "string" 
+          },
+          "content": {
+            "type": "string"
+          }
+        }
+      }
+    },
     "description": {
       "type": "array",
       "description": "The description of the dataset.",

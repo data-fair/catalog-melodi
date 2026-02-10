@@ -16,15 +16,25 @@ const prepareCatalog = (melodiCatalog: MelodiDataset[]): ResourceList => {
   const catalog: ResourceList = []
 
   for (const melodiDataset of melodiCatalog) {
+    const titleContent = getLanguageContent(melodiDataset.title)
+    const subtitleContent = getLanguageContent(melodiDataset.subtitle)
+    let finalTitle = melodiDataset.identifier
+
+    if (titleContent) {
+      if (subtitleContent) {
+        finalTitle = `${titleContent} - ${subtitleContent}`
+      } else {
+        finalTitle = titleContent
+      }
+    }
     const firstFile = melodiDataset.product && melodiDataset.product.length > 0 ? melodiDataset.product[0] : null // first file is used for size/format/origin of the uploaded csv
     catalog.push({
       id: melodiDataset.identifier,
-      title: getLanguageContent(melodiDataset.title) ?? melodiDataset.identifier,
+      title: finalTitle,
       // description: getLanguageContent(melodiDataset.description) ?? '', // not use
       updatedAt: melodiDataset.modified,
       size: firstFile?.byteSize ?? 0,
       format: firstFile?.format ?? 'unknown',
-      origin: firstFile?.accessURL ?? '',
       type: 'resource'
     } as ResourceList[number])
   }

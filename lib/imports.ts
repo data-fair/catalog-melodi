@@ -24,12 +24,19 @@ const getMetaData = async ({ importConfig, resourceId, log }: GetResourceContext
   }
   // Prepare Resource metadata, first file is used for size/format/origin of the uploaded csv
   const firstFile = melodiDataset.product && melodiDataset.product.length > 0 ? melodiDataset.product[0] : null
+  const titleContent = getLanguageContent(melodiDataset.title)
+  const subtitleContent = getLanguageContent(melodiDataset.subtitle)
+  let baseTitle = titleContent
+
+  if (titleContent && subtitleContent) {
+    baseTitle = `${titleContent} - ${subtitleContent}`
+  }
   let ressourceTitle : string
   // Determine resource title based on importConfig
   if (importConfig.useDatasetTitle) {
-    ressourceTitle = getLanguageContent(melodiDataset.title) ?? melodiDataset.identifier
+    ressourceTitle = baseTitle ?? melodiDataset.identifier
   } else {
-    ressourceTitle = melodiDataset.identifier ?? getLanguageContent(melodiDataset.title)
+    ressourceTitle = melodiDataset.identifier ?? baseTitle
   }
   // Generate schema from melodiRangeTable, it will be injected in the Resource object for Data-Fair to use it
   return {
