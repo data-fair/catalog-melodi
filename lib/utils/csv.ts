@@ -295,11 +295,18 @@ export async function pivotCsv (
 
       // Add observed value to the correct column
       const rowObj = buffer.get(rowKey)! // non-null assertion as we just set it if missing, get the existing object
+      const rawPrev = rowObj[finalColName]
+      const rawNew = obsVal
 
-      const previousValue = parseFloat((rowObj[finalColName] || '0').replace(',', '.'))
-      const newValue = parseFloat((obsVal || '0').replace(',', '.'))
-      const total = previousValue + newValue
-      rowObj[finalColName] = total.toString() // set the observed value next to all other columns
+      if ((rawPrev === undefined || rawPrev === '') && (rawNew === undefined || rawNew === '')) {
+        rowObj[finalColName] = ''
+      } else {
+        const valPrev = (rawPrev === undefined || rawPrev === '') ? 0 : parseFloat(rawPrev.replace(',', '.'))
+        const valNew = (rawNew === undefined || rawNew === '') ? 0 : parseFloat(rawNew.replace(',', '.'))
+
+        const total = valPrev + valNew
+        rowObj[finalColName] = total.toString() // set the observed value next to all other columns
+      }
 
       // Note that this column exists
       if (!dynamicHeadersMap.has(finalColName)) {
@@ -336,7 +343,8 @@ export async function pivotCsv (
       // Dynamic values
       for (const header of sortedDynHeaders) {
         // If value exists put it, otherwise '0'
-        row.push(rowData[header] || '0')
+        const finalValue = rowData[header] !== undefined && rowData[header] !== '' ? rowData[header] : ''
+        row.push((finalValue))
       }
       output.write(row.join(';') + '\n')
     }

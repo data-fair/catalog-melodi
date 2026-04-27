@@ -33,7 +33,7 @@ const getMetaData = async ({ importConfig, resourceId, log }: GetResourceContext
   if (titleContent && subtitleContent) {
     baseTitle = `${titleContent} - ${subtitleContent}`
   }
-  let ressourceTitle : string
+  let ressourceTitle: string
   // Determine resource title based on importConfig
   if (importConfig.useDatasetTitle) {
     ressourceTitle = baseTitle ?? melodiDataset.identifier
@@ -159,7 +159,9 @@ export const getResource = async (context: GetResourceContext<MelodiConfig>): Re
     })
   }
   const totalCount = await countPagging(context.resourceId, activeFilters)
-  if (totalCount > 0 && totalCount <= 100000) {
+  if (totalCount === 0) {
+    throw new Error('Le dataset est vide avec les filtres appliqués.')
+  } else if (totalCount <= 100000) {
     const contextWithFilters = {
       ...context,
       importConfig: {
@@ -185,7 +187,7 @@ export const getResource = async (context: GetResourceContext<MelodiConfig>): Re
     }
     dataset.filePath = await downloadResourceZip(zipContext, dataset.filePath)
   }
-  let melodiRangeTable : MelodiRange
+  let melodiRangeTable: MelodiRange
   try {
     melodiRangeTable = (await axios.get(`https://api.insee.fr/melodi/range/${context.resourceId}`)).data.range // fecth range information for schema generation
   } catch {
