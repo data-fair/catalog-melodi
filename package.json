@@ -1,6 +1,6 @@
 {
   "name": "@data-fair/catalog-melodi",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "description": "Melodi plugin for the Data Fair catalogs service.",
   "main": "index.ts",
   "type": "module",
