@@ -30,7 +30,7 @@ export async function downloadFileWithProgress (
 
     // Attempt to get the total file size from headers for progress calculation
     const totalLength = response.headers['content-length']
-      ? parseInt(response.headers['content-length'], 10)
+      ? parseInt(String(response.headers['content-length']), 10)
       : undefined
 
     // Initialize the logging task
