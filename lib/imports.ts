@@ -22,8 +22,10 @@ const getMetaData = async ({ importConfig, resourceId, log }: GetResourceContext
     await log.error(`Erreur lors de la récupération du dataset Melodi ${e instanceof Error ? e.message : String(e)}`)
     throw new Error('Error fetching Melodi dataset metadata')
   }
-  // Prepare Resource metadata, first file is used for size/format/origin of the uploaded csv
-  const firstFile = melodiDataset.product && melodiDataset.product.length > 0 ? melodiDataset.product[0] : null
+  // Prepare Resource metadata, find the CSV/zip file for download, fallback to first file
+  const firstFile = melodiDataset.product && melodiDataset.product.length > 0
+    ? (melodiDataset.product.find((p: any) => p.format === 'CSV' || p.packageFormat === 'application/zip') ?? melodiDataset.product[0])
+    : null
   const titleContent = getLanguageContent(melodiDataset.title)
   const subtitleContent = getLanguageContent(melodiDataset.subtitle)
   let baseTitle = titleContent

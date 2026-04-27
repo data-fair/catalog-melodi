@@ -3,6 +3,7 @@ import StreamZip from 'node-stream-zip'
 import fs from 'fs'
 import readline from 'readline'
 import type { MelodiRange } from '#types'
+import { getAbbreviation } from './label-mapping.ts'
 
 /**
  * Extracts a CSV file from a zip archive and saves it to the specified destination directory.
@@ -240,12 +241,19 @@ export async function pivotCsv (
       }
       const rowKey = rowKeyParts.join('|') // ex: "FR|2021"
 
-      // sort pivot concepts to ensure a consistent column order, with Age/Sexe at the end
+      // sort pivot concepts to ensure a consistent column order:
+      // - measure concepts first
+      // - Age/Sexe at the end
       const sortedConcepts = [...pivotConcepts].sort((a, b) => {
+        const isMeasure = (key: string) => key.toLowerCase().includes('measure')
         const isEnd = (key: string) => {
           const k = key.toLowerCase()
           return k.includes('age') || k.includes('sex') || k.includes('sexe')
         }
+        // if A is a measure and not B, A goes first (-1)
+        if (isMeasure(a) && !isMeasure(b)) return -1
+        // if B is a measure and not A, B goes first (1)
+        if (!isMeasure(a) && isMeasure(b)) return 1
         // if A is Age/Sexe and not B, A goes to the end (1)
         if (isEnd(a) && !isEnd(b)) return 1
         // if B is Age/Sexe and not A, B goes to the end (-1)
@@ -255,7 +263,7 @@ export async function pivotCsv (
       })
 
       // Build dynamic column name
-      const pivotParts: string[] = []
+      const pivotKeyParts: string[] = []
       const titleParts: string[] = []
 
       for (const pc of sortedConcepts) {
@@ -263,16 +271,19 @@ export async function pivotCsv (
         if (idx !== undefined) {
           const val = cols[idx]
 
-          const cleanVal = val.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '') // clean value: lowercase, no accents, alphanumeric only
-          pivotParts.push(`${cleanVal}`)
+          // Skip "Total" aggregates: they carry no distinguishing information
+          if (val === '_T') continue
 
           const humanLabel = labelsMap[pc]?.[val] || val // get human-readable label if available
+          const abbr = getAbbreviation(pc, val, humanLabel)
+
+          if (abbr) pivotKeyParts.push(abbr)
           titleParts.push(humanLabel)
         }
       }
 
       // If no pivot concept found, call the column "value"
-      const finalColName = pivotParts.length > 0 ? pivotParts.join('') : 'value'
+      const finalColName = pivotKeyParts.length > 0 ? pivotKeyParts.join('_') : 'value'
       const finalColTitle = titleParts.length > 0 ? titleParts.join(' - ') : 'Valeur' // Human-readable column title for the schema
 
       // Initialize the row in buffer if not already there
