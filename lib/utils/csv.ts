@@ -3,7 +3,7 @@ import StreamZip from 'node-stream-zip'
 import fs from 'fs'
 import readline from 'readline'
 import type { MelodiRange } from '#types'
-import { getAbbreviation, conceptShortLabels } from './label-mapping.ts'
+import { getAbbreviation, conceptShortLabels, conceptNegativeLabels } from './label-mapping.ts'
 
 /**
  * Extracts a CSV file from a zip archive and saves it to the specified destination directory.
@@ -192,7 +192,7 @@ export async function pivotCsv (
       if (typeof label !== 'string') continue
       const lower = label.toLowerCase()
       if (lower === 'oui') vals[code] = shortLabel
-      else if (lower === 'non') vals[code] = `Sans ${shortLabel.toLowerCase()}`
+      else if (lower === 'non') vals[code] = conceptNegativeLabels[concept] || `Sans ${shortLabel.toLowerCase()}`
     }
   }
 

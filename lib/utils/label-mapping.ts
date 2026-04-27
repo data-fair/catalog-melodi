@@ -152,7 +152,7 @@ export const labelMapping: Record<string, Record<string, string>> = {
   },
   // COUPLE
   COUPLE: {
-    0: 'pas_cpl',
+    0: 'seul',
     1: 'cpl',
     _T: 'tot',
   },
@@ -403,7 +403,7 @@ export const labelMapping: Record<string, Record<string, string>> = {
   },
   // LIGHTED
   LIGHTED: {
-    0: 'non_eclaire',
+    0: 'obscur',
     1: 'eclaire',
     _U: 'indet',
     _Z: 'so',
@@ -438,7 +438,7 @@ export const labelMapping: Record<string, Record<string, string>> = {
   },
   // MULTIPLEX_CINEMA
   MULTIPLEX_CINEMA: {
-    0: 'pas_multiplex',
+    0: 'mono',
     1: 'multiplex',
     _U: 'indet',
     _Z: 'so',
@@ -697,7 +697,7 @@ export const labelMapping: Record<string, Record<string, string>> = {
   },
   // STUD
   STUD: {
-    0: 'non_inscr',
+    0: 'non_sco',
     1: 'inscr',
     _T: 'tot',
   },
@@ -876,6 +876,15 @@ export const conceptShortLabels: Record<string, string> = {
   SEASONAL_OPENING: 'Ouverture saisonnière',
   SHOWER: 'Douches',
   SOBO: 'Chauffe-eau solaire',
+  STUD: 'Scolarisé',
+}
+
+/** Libellés négatifs explicites pour éviter les formulations "Sans xxx" */
+export const conceptNegativeLabels: Record<string, string> = {
+  COUPLE: 'Seul',
+  LIGHTED: 'Obscur',
+  MULTIPLEX_CINEMA: 'Classique',
+  STUD: 'Non scolarisé',
 }
 
 export function slugifyLabel (label: string): string {
