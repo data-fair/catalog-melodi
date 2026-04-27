@@ -3,7 +3,7 @@ import StreamZip from 'node-stream-zip'
 import fs from 'fs'
 import readline from 'readline'
 import type { MelodiRange } from '#types'
-import { getAbbreviation } from './label-mapping.ts'
+import { getAbbreviation, conceptShortLabels } from './label-mapping.ts'
 
 /**
  * Extracts a CSV file from a zip archive and saves it to the specified destination directory.
@@ -179,6 +179,20 @@ export async function pivotCsv (
           labelsMap[cCode][v.code] = v.label?.fr || v.label?.en || v.code
         }
       }
+    }
+  }
+
+  // Contextualiser les labels génériques (Oui / Non) pour les concepts booléens connus
+  for (const concept of Object.keys(labelsMap)) {
+    const shortLabel = conceptShortLabels[concept]
+    if (!shortLabel) continue
+    const vals = labelsMap[concept]
+    for (const code of Object.keys(vals)) {
+      const label = vals[code]
+      if (typeof label !== 'string') continue
+      const lower = label.toLowerCase()
+      if (lower === 'oui') vals[code] = shortLabel
+      else if (lower === 'non') vals[code] = `Sans ${shortLabel.toLowerCase()}`
     }
   }
 

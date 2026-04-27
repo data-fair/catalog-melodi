@@ -80,14 +80,14 @@ export const labelMapping: Record<string, Record<string, string>> = {
   },
   // AIRCOND
   AIRCOND: {
-    0: 'non',
-    1: 'oui',
+    0: 'sans_clim',
+    1: 'clim',
     _T: 'tot',
   },
   // BAINWC
   BAINWC: {
-    0: 'non',
-    1: 'oui',
+    0: 'sans_bain_wc',
+    1: 'bain_wc',
     _T: 'tot',
   },
   // BASE_PER
@@ -96,8 +96,8 @@ export const labelMapping: Record<string, Record<string, string>> = {
   },
   // BOARDING_SCHOOL
   BOARDING_SCHOOL: {
-    0: 'non',
-    1: 'oui',
+    0: 'sans_internat',
+    1: 'internat',
     _T: 'tot',
     _U: 'indet',
     _Z: 'so',
@@ -121,16 +121,16 @@ export const labelMapping: Record<string, Record<string, string>> = {
   },
   // CANTEEN
   CANTEEN: {
-    0: 'non',
-    1: 'oui',
+    0: 'sans_cantine',
+    1: 'cantine',
     _T: 'tot',
     _U: 'indet',
     _Z: 'so',
   },
   // CARPARK
   CARPARK: {
-    0: 'non',
-    1: 'oui',
+    0: 'sans_park',
+    1: 'park',
     _T: 'tot',
   },
   // CARS
@@ -152,14 +152,14 @@ export const labelMapping: Record<string, Record<string, string>> = {
   },
   // COUPLE
   COUPLE: {
-    0: 'non',
-    1: 'oui',
+    0: 'pas_cpl',
+    1: 'cpl',
     _T: 'tot',
   },
   // CPGE
   CPGE: {
-    0: 'non',
-    1: 'oui',
+    0: 'sans_cpge',
+    1: 'cpge',
     _T: 'tot',
     _Z: 'so',
   },
@@ -230,8 +230,8 @@ export const labelMapping: Record<string, Record<string, string>> = {
   },
   // ELEC
   ELEC: {
-    0: 'non',
-    1: 'oui',
+    0: 'sans_elec',
+    1: 'elec',
     _T: 'tot',
   },
   // EMPFORM
@@ -269,8 +269,8 @@ export const labelMapping: Record<string, Record<string, string>> = {
   },
   // EP
   EP: {
-    0: 'non',
-    1: 'oui',
+    0: 'hors_educ_prio',
+    1: 'educ_prio',
     _T: 'tot',
     _Z: 'so',
   },
@@ -349,8 +349,8 @@ export const labelMapping: Record<string, Record<string, string>> = {
   },
   // FREE_ACCESS
   FREE_ACCESS: {
-    0: 'non',
-    1: 'oui',
+    0: 'restreint',
+    1: 'libre',
     _U: 'indet',
     _Z: 'so',
   },
@@ -367,8 +367,8 @@ export const labelMapping: Record<string, Record<string, string>> = {
   },
   // INDOOR
   INDOOR: {
-    0: 'non',
-    1: 'oui',
+    0: 'decouvert',
+    1: 'couvert',
     _U: 'indet',
     _Z: 'so',
   },
@@ -403,15 +403,15 @@ export const labelMapping: Record<string, Record<string, string>> = {
   },
   // LIGHTED
   LIGHTED: {
-    0: 'non',
-    1: 'oui',
+    0: 'non_eclaire',
+    1: 'eclaire',
     _U: 'indet',
     _Z: 'so',
   },
   // LOCKER_ROOM_ACCESSIBILITY
   LOCKER_ROOM_ACCESSIBILITY: {
-    0: 'non',
-    1: 'oui',
+    0: 'vest_inacc',
+    1: 'vest_acc',
     _U: 'indet',
     _Z: 'so',
   },
@@ -438,8 +438,8 @@ export const labelMapping: Record<string, Record<string, string>> = {
   },
   // MULTIPLEX_CINEMA
   MULTIPLEX_CINEMA: {
-    0: 'non',
-    1: 'oui',
+    0: 'pas_multiplex',
+    1: 'multiplex',
     _U: 'indet',
     _Z: 'so',
   },
@@ -555,8 +555,8 @@ export const labelMapping: Record<string, Record<string, string>> = {
   },
   // PRACTICE_AREA_ACCESSIBILITY
   PRACTICE_AREA_ACCESSIBILITY: {
-    0: 'non',
-    1: 'oui',
+    0: 'prat_inacc',
+    1: 'prat_acc',
     _U: 'indet',
     _Z: 'so',
   },
@@ -636,15 +636,15 @@ export const labelMapping: Record<string, Record<string, string>> = {
   },
   // SANITARY
   SANITARY: {
-    0: 'non',
-    1: 'oui',
+    0: 'sans_sanit',
+    1: 'sanit',
     _U: 'indet',
     _Z: 'so',
   },
   // SANITARY_ACCESSIBILITY
   SANITARY_ACCESSIBILITY: {
-    0: 'non',
-    1: 'oui',
+    0: 'sanit_inacc',
+    1: 'sanit_acc',
     _U: 'indet',
     _Z: 'so',
   },
@@ -664,8 +664,8 @@ export const labelMapping: Record<string, Record<string, string>> = {
   },
   // SEASONAL_OPENING
   SEASONAL_OPENING: {
-    0: 'non',
-    1: 'oui',
+    0: 'perm',
+    1: 'saison',
     _U: 'indet',
     _Z: 'so',
   },
@@ -677,8 +677,8 @@ export const labelMapping: Record<string, Record<string, string>> = {
   },
   // SHOWER
   SHOWER: {
-    0: 'non',
-    1: 'oui',
+    0: 'sans_douche',
+    1: 'douche',
     _U: 'indet',
     _Z: 'so',
   },
@@ -691,8 +691,8 @@ export const labelMapping: Record<string, Record<string, string>> = {
   },
   // SOBO
   SOBO: {
-    0: 'non',
-    1: 'oui',
+    0: 'sans_chauf_eau_sol',
+    1: 'chauf_eau_sol',
     _T: 'tot',
   },
   // STUD
@@ -852,6 +852,30 @@ export const labelMapping: Record<string, Record<string, string>> = {
     3: 'puisard',
     _T: 'tot',
   },
+}
+
+/** Libellés courts pour contextualiser les valeurs génériques (Oui / Non, etc.) */
+export const conceptShortLabels: Record<string, string> = {
+  AIRCOND: 'Climatisation',
+  BAINWC: 'Bain et WC',
+  BOARDING_SCHOOL: 'Internat',
+  CANTEEN: 'Cantine',
+  CARPARK: 'Parking',
+  COUPLE: 'Vie en couple',
+  CPGE: 'CPGE',
+  ELEC: 'Électricité',
+  EP: 'Éducation prioritaire',
+  FREE_ACCESS: 'Accès libre',
+  INDOOR: 'Couvert',
+  LIGHTED: 'Éclairé',
+  LOCKER_ROOM_ACCESSIBILITY: 'Vestiaire accessible',
+  MULTIPLEX_CINEMA: 'Multiplexe',
+  PRACTICE_AREA_ACCESSIBILITY: 'Aire de pratique accessible',
+  SANITARY: 'Sanitaires',
+  SANITARY_ACCESSIBILITY: 'Sanitaires accessibles',
+  SEASONAL_OPENING: 'Ouverture saisonnière',
+  SHOWER: 'Douches',
+  SOBO: 'Chauffe-eau solaire',
 }
 
 export function slugifyLabel (label: string): string {
