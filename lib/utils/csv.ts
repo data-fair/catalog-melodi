@@ -296,9 +296,9 @@ export async function pivotCsv (
         }
       }
 
-      // If no pivot concept found, call the column "value"
-      const finalColName = pivotKeyParts.length > 0 ? pivotKeyParts.join('_') : 'value'
-      const finalColTitle = titleParts.length > 0 ? titleParts.join(' - ') : 'Valeur' // Human-readable column title for the schema
+      // If no pivot concept found, call the column "total"
+      const finalColName = pivotKeyParts.length > 0 ? pivotKeyParts.join('_') : 'total'
+      const finalColTitle = titleParts.length > 0 ? titleParts.join(' - ') : 'Total' // Human-readable column title for the schema
 
       // Initialize the row in buffer if not already there
       if (!buffer.has(rowKey)) {

@@ -19,6 +19,7 @@ export const labelMapping: Record<string, Record<string, string>> = {
     Y15T17: '15_17a',
     Y15T19: '15_19a',
     Y15T24: '15_24a',
+    Y15T64: '15_64a',
     Y18T24: '18_24a',
     Y20T24: '20_24a',
     Y20T64: '20_64a',
@@ -56,8 +57,10 @@ export const labelMapping: Record<string, Record<string, string>> = {
     Y_GE30: '30plus_a',
     Y_GE55: '55plus_a',
     Y_GE60: '60plus_a',
+    Y_GE65: '65plus_a',
     Y_GE75: '75plus_a',
     Y_GE80: '80plus_a',
+    Y_GE85: '85plus_a',
     Y_GE95: '95plus_a',
     Y_LE24: '24m_a',
     Y_LT5: 'm5a',
@@ -66,7 +69,7 @@ export const labelMapping: Record<string, Record<string, string>> = {
     Y_LT25: 'm25a',
     Y_LT30: 'm30a',
     _T: 'tot',
-    _Z: 'na',
+    _Z: 'age_na',
   },
   // AGE_RF
   AGE_RF: {
