@@ -53,6 +53,7 @@ export const labelMapping: Record<string, Record<string, string>> = {
     Y80T84: '80_84a',
     Y85T89: '85_89a',
     Y90T94: '90_94a',
+    Y_GE1: '1plus_a',
     Y_GE15: '15plus_a',
     Y_GE30: '30plus_a',
     Y_GE55: '55plus_a',
@@ -151,6 +152,7 @@ export const labelMapping: Record<string, Record<string, string>> = {
     4: 'veuf',
     5: 'div',
     6: 'celib',
+    '2T6': 'non_marie',
     _T: 'tot',
   },
   // COUPLE
@@ -470,7 +472,7 @@ export const labelMapping: Record<string, Record<string, string>> = {
   },
   // NOC
   NOC: {
-    P1: '1_pers',
+    P1: '1p',
     _T: 'tot',
   },
   // NOR
@@ -626,6 +628,8 @@ export const labelMapping: Record<string, Record<string, string>> = {
     POP: 'pop',
     DWELLINGS: 'log',
     DWELLINGS_POPSIZE: 'pop_men',
+    DWELLINGS_ROOMS: 'nb_pces',
+    DWELLING_L_STAY: 'duree',
     BRTH: 'naiss_cum',
     DEATH: 'dec_cum',
     SUP: 'surf',
@@ -805,13 +809,13 @@ export const labelMapping: Record<string, Record<string, string>> = {
   },
   // TRANS
   TRANS: {
-    1: 'aucun',
+    1: 'aucun_trans',
     2: 'pied',
     3: 'velo',
     '3T4': '2_roues',
     4: '2rm',
     5: 'voit',
-    6: 'tc',
+    6: 'trans_com',
     _T: 'tot',
   },
   // TSH
