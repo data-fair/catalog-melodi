@@ -272,6 +272,21 @@ export const labelMapping: Record<string, Record<string, string>> = {
     OQ: 'admin',
     _T: 'tot',
   },
+  // ACTIVITY
+  ACTIVITY: {
+    AZ: 'agri',
+    BE: 'indus',
+    FZ: 'const',
+    GI: 'com',
+    GU: 'serv_march',
+    JZ: 'info_comm',
+    KZ: 'fin_ass',
+    LZ: 'immob',
+    MN: 'serv_spe',
+    OQ: 'admin',
+    RU: 'aut_serv',
+    _T: 'tot',
+  },
   // EP
   EP: {
     0: 'hors_educ_prio',
@@ -523,7 +538,7 @@ export const labelMapping: Record<string, Record<string, string>> = {
     A: 'norm',
     K: 'incl_autr',
     O: 'vm',
-    W: 'incl_dans_autr',
+    W: 'incl_dans',
   },
   // CONF_STATUS
   CONF_STATUS: {
