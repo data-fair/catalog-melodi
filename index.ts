@@ -17,11 +17,6 @@ const plugin: CatalogPlugin<MelodiConfig, MelodiCapabilities> = {
 
   metadata: {
     title: 'Melodi',
-    thumbnailPath: './lib/resources/melodi_logo.png',
-    i18n: {
-      en: { description: 'Import datasets from the Melodi catalog (insee.fr).' },
-      fr: { description: 'Importez des jeux de données depuis le catalogue Melodi (insee.fr).' }
-    },
     capabilities
   },
 
