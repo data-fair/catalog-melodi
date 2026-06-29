@@ -19,7 +19,7 @@ const getMetaData = async ({ importConfig, resourceId, log }: GetResourceContext
   try {
     melodiDataset = (await axios.get(`https://api.insee.fr/melodi/catalog/${resourceId}`)).data
   } catch (e) {
-    await log.error(`Erreur lors de la récupération du dataset Melodi ${e instanceof Error ? e.message : String(e)}`)
+    await log.error(`Error fetching the Melodi dataset ${e instanceof Error ? e.message : String(e)}`)
     throw new Error('Error fetching Melodi dataset metadata')
   }
   // Prepare Resource metadata, find the CSV/zip file for download, fallback to first file
@@ -81,7 +81,7 @@ const countPagging = async (resourceId: string, filters?: any[]): Promise<number
     return totalItems || 0
   } catch (e) {
     // In case of error, we return false and log the error
-    console.error(`Erreur lors de la vérification de pagination pour ${resourceId}`, e)
+    console.error(`Error checking pagination for ${resourceId}`, e)
     return 0
   }
 }
@@ -145,10 +145,10 @@ const downloadResourceCsv = async ({ importConfig, resourceId, tmpDir, log }: Ge
   * @returns A promise that resolves to the Resource with the filePath set to the downloaded file.
  */
 export const getResource = async (context: GetResourceContext<MelodiConfig>): ReturnType<CatalogPlugin['getResource']> => {
-  await context.log.step('Téléchargement du fichier')
+  await context.log.step('Downloading file')
   const dataset = await getMetaData(context)
   if (!dataset.filePath) {
-    throw new Error(`Le dataset ${dataset.id} ne possède pas de fichier associé.`)
+    throw new Error(`Dataset ${dataset.id} has no associated file.`)
   }
   const baseFilters = context.importConfig.filters ? [...context.importConfig.filters] : []
   const activeFilters = [...baseFilters]
@@ -160,7 +160,7 @@ export const getResource = async (context: GetResourceContext<MelodiConfig>): Re
   }
   const totalCount = await countPagging(context.resourceId, activeFilters)
   if (totalCount === 0) {
-    throw new Error('Le dataset est vide avec les filtres appliqués.')
+    throw new Error('The dataset is empty with the applied filters.')
   } else if (totalCount <= 100000) {
     const contextWithFilters = {
       ...context,
@@ -169,10 +169,10 @@ export const getResource = async (context: GetResourceContext<MelodiConfig>): Re
         filters: activeFilters
       }
     }
-    context.log.info(`Dataset léger détecté (${context.resourceId}), téléchargement CSV direct.`)
+    context.log.info(`Lightweight dataset detected (${context.resourceId}), direct CSV download.`)
     dataset.filePath = await downloadResourceCsv(contextWithFilters)
   } else {
-    context.log.info(`Dataset volumineux détecté (${context.resourceId}), téléchargement ZIP.`)
+    context.log.info(`Large dataset detected (${context.resourceId}), ZIP download.`)
     // For large datasets, download via ZIP
     const zipFilters = [...baseFilters]
     if (context.importConfig.geoLevel && context.importConfig.geoLevel !== 'NAT') {
@@ -210,7 +210,7 @@ export const getResource = async (context: GetResourceContext<MelodiConfig>): Re
     dataset.filePath = pivotedFilePath.filePath
     dataset.schema = pivotedFilePath.schema // use the schema generated during pivoting (with dynamic columns)
   } catch (error) {
-    await context.log.error('Erreur lors du pivotage', error)
+    await context.log.error('Error during pivoting', error)
     throw error
   }
   return dataset

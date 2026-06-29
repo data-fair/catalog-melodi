@@ -48,7 +48,7 @@ const prepareCatalog = (melodiCatalog: MelodiDataset[]): ResourceList => {
  */
 const getAllDatasets = memoize(async (apiUrl:string | undefined): Promise<MelodiDataset[]> => {
   if (!apiUrl) {
-    throw new Error("Configuration invalide : L'URL de l'API Melodi est manquante.")
+    throw new Error('Invalid configuration: the Melodi API URL is missing.')
   }
   try {
     const response : MelodiDataset[] = (await axios.get(`${apiUrl}/catalog/all`)).data
@@ -56,7 +56,7 @@ const getAllDatasets = memoize(async (apiUrl:string | undefined): Promise<Melodi
     return filtredResponse
   } catch (e) {
     console.error(`Error fetching datasets from Melodi ${e}`)
-    throw new Error('Erreur lors de la récupération des datasets Melodi (Attendez 1 minute puis rafraîchissez)')
+    throw new Error('Error retrieving Melodi datasets (Wait 1 minute then refresh)')
   }
 }, {
   promise: true, // cache the promise result

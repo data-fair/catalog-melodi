@@ -120,7 +120,7 @@ export async function extractCsvWithFilters (
 
     return outputPath
   } catch (err: any) {
-    await log.error(`Erreur processCsvInZip : ${err.message}`)
+    await log.error(`Error processCsvInZip: ${err.message}`)
     throw err
   } finally {
     await zip.close()
@@ -209,7 +209,7 @@ export async function pivotCsv (
   let progressLines = 0
   let lastLogged = Date.now()
   const logInterval = 500 // Log progress every 500ms
-  await log.task('Transformation des données', 'Transformation...', nbLines)
+  await log.task('Transforming data', 'Transforming...', nbLines)
   try {
     // Read source file
     const fileStream = fs.createReadStream(sourceCsvPath)
@@ -220,7 +220,7 @@ export async function pivotCsv (
       progressLines++
       if (now - lastLogged > logInterval) {
         lastLogged = now
-        log.progress('Transformation des données', progressLines, nbLines)
+        log.progress('Transforming data', progressLines, nbLines)
       }
       if (!line.trim()) continue
       // Clean up potential quotes
@@ -232,7 +232,7 @@ export async function pivotCsv (
 
         // Security check
         if (colIndices[COL_VAL] === undefined) {
-          throw new Error('Colonne OBS_VALUE manquante')
+          throw new Error('Missing OBS_VALUE column')
         }
         continue
       }
@@ -363,7 +363,7 @@ export async function pivotCsv (
       output.write(row.join(';') + '\n')
     }
 
-    log.progress('Transformation des données', nbLines, nbLines)
+    log.progress('Transforming data', nbLines, nbLines)
     output.end()
     // Wait for physical write to finish
     await new Promise<void>((resolve, reject) => {
