@@ -145,6 +145,8 @@ const downloadResourceCsv = async ({ importConfig, resourceId, tmpDir, log }: Ge
   * @returns A promise that resolves to the Resource with the filePath set to the downloaded file.
  */
 export const getResource = async (context: GetResourceContext<MelodiConfig>): ReturnType<CatalogPlugin['getResource']> => {
+  // the resource id is used in file names inside tmpDir, it must not traverse out of it
+  if (!/^[\w.-]+$/.test(context.resourceId)) throw new Error(`Invalid resource id ${context.resourceId}`)
   await context.log.step('Downloading file')
   const dataset = await getMetaData(context)
   if (!dataset.filePath) {
